@@ -1,3 +1,5 @@
+import Editor from '@monaco-editor/react'
+
 type NodeEditorProps = {
   path: string
   value: string
@@ -8,6 +10,10 @@ type NodeEditorProps = {
   onFormatJson: () => void
   onFormatXml: () => void
   onSave: () => void
+}
+
+function getLanguage(value: string) {
+  return value.trim().startsWith('<') ? 'xml' : 'json'
 }
 
 export function NodeEditor({
@@ -35,10 +41,10 @@ export function NodeEditor({
             flexWrap: 'wrap',
           }}
         >
-          <button type="button" onClick={onFormatJson}>
+          <button type="button" onClick={onFormatJson} disabled={isLoading}>
             Format JSON
           </button>
-          <button type="button" onClick={onFormatXml}>
+          <button type="button" onClick={onFormatXml} disabled={isLoading}>
             Format XML
           </button>
           <button type="button" onClick={onSave} disabled={isLoading || isSaving}>
@@ -47,18 +53,19 @@ export function NodeEditor({
         </div>
       </div>
       <div className="panel__body">
-        <label htmlFor="node-data-editor">Node data editor</label>
-        <textarea
-          id="node-data-editor"
-          aria-label="Node data editor"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          spellCheck={false}
-          style={{
-            minHeight: '280px',
-            resize: 'vertical',
-            width: '100%',
+        <div>Node data editor</div>
+        <Editor
+          height="320px"
+          language={getLanguage(value)}
+          options={{
+            automaticLayout: true,
+            minimap: { enabled: false },
+            readOnly: isLoading,
+            scrollBeyondLastLine: false,
           }}
+          theme="vs-dark"
+          value={value}
+          onChange={(nextValue) => onChange(nextValue ?? '')}
         />
         {isLoading ? <p>Loading node data...</p> : null}
         {error ? <p role="alert">{error}</p> : null}

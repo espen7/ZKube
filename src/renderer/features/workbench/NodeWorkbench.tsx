@@ -21,19 +21,19 @@ export function NodeWorkbench() {
 
   useEffect(() => {
     ensureDefaultTab()
-  }, [])
+  }, [ensureDefaultTab])
 
   const activeTab =
     tabs.find((tab) => tab.path === activePath) ??
     tabs.find((tab) => tab.path === defaultNodePath)
 
   useEffect(() => {
-    if (!activeTab || activeTab.hasLoaded || activeTab.loading) {
+    if (!activeTab || activeTab.loadState !== 'idle') {
       return
     }
 
     void loadTab(activeTab.path)
-  }, [activeTab])
+  }, [activeTab?.loadState, activeTab?.path, loadTab])
 
   if (!activeTab) {
     return null
@@ -96,7 +96,7 @@ export function NodeWorkbench() {
             path={activeTab.path}
             value={activeTab.draft}
             error={activeTab.error}
-            isLoading={activeTab.loading}
+            isLoading={activeTab.loadState === 'loading'}
             isSaving={activeTab.saving}
             onChange={(value) => setDraft(activeTab.path, value)}
             onFormatJson={() => applyFormatter(activeTab.path, formatJson)}

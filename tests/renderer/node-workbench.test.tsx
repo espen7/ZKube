@@ -1,9 +1,42 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+const monacoEditorSpy = vi.hoisted(() => vi.fn())
+
+vi.mock('@monaco-editor/react', () => ({
+  default: (props: {
+    value?: string
+    onChange?: (value?: string) => void
+    options?: { readOnly?: boolean }
+  }) => {
+    monacoEditorSpy(props)
+
+    return (
+      <textarea
+        aria-label="Node data editor"
+        data-testid="monaco-editor"
+        readOnly={Boolean(props.options?.readOnly)}
+        value={props.value ?? ''}
+        onChange={(event) => props.onChange?.(event.target.value)}
+      />
+    )
+  },
+}))
+
 import App from '../../src/renderer/App'
 import { formatJson, formatXml } from '../../src/renderer/features/workbench/formatters'
 import type { NodeSnapshot } from '../../src/shared/models/node'
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve
+    reject = nextReject
+  })
+
+  return { promise, resolve, reject }
+}
 
 describe('node workbench formatters', () => {
   it('formats JSON with two-space indentation', () => {
@@ -29,6 +62,7 @@ describe('node workbench', () => {
   >
 
   beforeEach(() => {
+    monacoEditorSpy.mockClear()
     openMock = vi.fn<(path: string) => Promise<NodeSnapshot>>().mockResolvedValue({
       path: '/config/service',
       data: new TextEncoder().encode('{"service":"zk"}'),
@@ -71,25 +105,21 @@ describe('node workbench', () => {
   })
 
   afterEach(async () => {
-    try {
-      const workbenchModule = await import(
-        '../../src/renderer/stores/useWorkbenchStore'
-      )
-      workbenchModule.resetWorkbenchStore()
-    } catch {
-      // Store is introduced by this task.
-    }
-
+    const workbenchModule = await import('../../src/renderer/stores/useWorkbenchStore')
+    workbenchModule.resetWorkbenchStore()
     window.zkube = originalZkube
   })
 
-  it('loads the default node and switches between data/meta/acl panes', async () => {
+  it('mounts the monaco editor and switches between data/meta/acl panes', async () => {
     await act(async () => {
       render(<App />)
     })
 
     expect(openMock).toHaveBeenCalledWith('/config/service')
-    expect(await screen.findByDisplayValue('{"service":"zk"}')).toBeInTheDocument()
+    expect(await screen.findByTestId('monaco-editor')).toHaveValue(
+      '{"service":"zk"}',
+    )
+    expect(monacoEditorSpy).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Meta' }))
     expect(await screen.findByText('7')).toBeInTheDocument()
@@ -101,32 +131,74 @@ describe('node workbench', () => {
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Data' }))
-    expect(screen.getByDisplayValue('{"service":"zk"}')).toBeInTheDocument()
+    expect(screen.getByTestId('monaco-editor')).toHaveValue('{"service":"zk"}')
   })
 
-  it('formats JSON in the editor and saves through the zookeeper bridge', async () => {
+  it('stops retrying after the initial open failure', async () => {
+    openMock.mockRejectedValueOnce(new Error('boom'))
+
     await act(async () => {
       render(<App />)
     })
 
-    const editor = await screen.findByLabelText('Node data editor')
+    expect(await screen.findByRole('alert')).toHaveTextContent('boom')
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(openMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the monaco editor read-only while the initial load is pending', async () => {
+    const deferred = createDeferred<NodeSnapshot>()
+    openMock.mockReturnValueOnce(deferred.promise)
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    const editor = await screen.findByTestId('monaco-editor')
+    expect(editor).toHaveProperty('readOnly', true)
+  })
+
+  it('increments the node version across consecutive saves', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    const editor = await screen.findByTestId('monaco-editor')
 
     fireEvent.change(editor, {
       target: { value: '{"service":"zk","enabled":true}' },
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Format JSON' }))
-
     expect(editor).toHaveValue('{\n  "service": "zk",\n  "enabled": true\n}')
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     })
 
-    expect(updateMock).toHaveBeenCalledWith(
+    fireEvent.change(editor, {
+      target: { value: '{"service":"zk","enabled":false}' },
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    })
+
+    expect(updateMock).toHaveBeenNthCalledWith(
+      1,
       '/config/service',
       new TextEncoder().encode('{\n  "service": "zk",\n  "enabled": true\n}'),
       7,
+    )
+    expect(updateMock).toHaveBeenNthCalledWith(
+      2,
+      '/config/service',
+      new TextEncoder().encode('{"service":"zk","enabled":false}'),
+      8,
     )
   })
 })

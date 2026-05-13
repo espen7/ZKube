@@ -1,8 +1,9 @@
-import { useSyncExternalStore } from 'react'
+import { create } from 'zustand'
 
 import type { NodeSnapshot } from '../../shared/models/node'
 
 export type WorkbenchPane = 'Data' | 'Meta' | 'ACL'
+export type WorkbenchLoadState = 'idle' | 'loading' | 'ready' | 'error'
 
 export type WorkbenchTab = {
   path: string
@@ -12,15 +13,22 @@ export type WorkbenchTab = {
   savedDraft: string
   stat: NodeSnapshot['stat']
   acl: NodeSnapshot['acl']
-  hasLoaded: boolean
-  loading: boolean
+  loadState: WorkbenchLoadState
   saving: boolean
   error: string | null
 }
 
 type WorkbenchState = {
   activePath: string | null
+  defaultNodePath: string
   tabs: WorkbenchTab[]
+  ensureDefaultTab: () => void
+  setActiveTab: (path: string) => void
+  setActivePane: (path: string, pane: WorkbenchPane) => void
+  setDraft: (path: string, draft: string) => void
+  applyFormatter: (path: string, formatter: (input: string) => string) => void
+  loadTab: (path: string) => Promise<void>
+  saveTab: (path: string) => Promise<void>
 }
 
 const defaultNodePath = '/config/service'
@@ -29,36 +37,8 @@ const defaultStat = {
   numChildren: 0,
 }
 
-const initialState: WorkbenchState = {
-  activePath: defaultNodePath,
-  tabs: [],
-}
-
-const listeners = new Set<() => void>()
 const encoder = new TextEncoder()
 const decoder = new TextDecoder()
-
-let state: WorkbenchState = initialState
-
-function emitChange() {
-  for (const listener of listeners) {
-    listener()
-  }
-}
-
-function setState(next: WorkbenchState) {
-  state = next
-  emitChange()
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
-
-function getSnapshot() {
-  return state
-}
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -82,162 +62,196 @@ function createTab(path: string): WorkbenchTab {
     savedDraft: '',
     stat: defaultStat,
     acl: [],
-    hasLoaded: false,
-    loading: false,
+    loadState: 'idle',
     saving: false,
     error: null,
   }
 }
 
-function updateTab(
+function upsertTab(
+  tabs: WorkbenchTab[],
   path: string,
   updater: (tab: WorkbenchTab) => WorkbenchTab,
 ) {
-  const nextTabs = (state.tabs.some((tab) => tab.path === path)
-    ? state.tabs
-    : [...state.tabs, createTab(path)]).map((tab) =>
-    tab.path === path ? updater(tab) : tab,
-  )
+  const nextTabs = tabs.some((tab) => tab.path === path)
+    ? tabs
+    : [...tabs, createTab(path)]
 
-  setState({
-    ...state,
-    activePath: path,
-    tabs: nextTabs,
-  })
+  return nextTabs.map((tab) => (tab.path === path ? updater(tab) : tab))
 }
 
-function ensureDefaultTab() {
-  if (state.tabs.some((tab) => tab.path === defaultNodePath)) {
-    if (!state.activePath) {
-      setState({
-        ...state,
-        activePath: defaultNodePath,
-      })
-    }
-    return
-  }
-
-  setState({
-    ...state,
+function initialState() {
+  return {
     activePath: defaultNodePath,
-    tabs: [...state.tabs, createTab(defaultNodePath)],
-  })
-}
-
-function setActiveTab(path: string) {
-  updateTab(path, (tab) => tab)
-}
-
-function setActivePane(path: string, pane: WorkbenchPane) {
-  updateTab(path, (tab) => ({
-    ...tab,
-    activePane: pane,
-  }))
-}
-
-function setDraft(path: string, draft: string) {
-  updateTab(path, (tab) => ({
-    ...tab,
-    draft,
-    error: null,
-  }))
-}
-
-function applyFormatter(path: string, formatter: (input: string) => string) {
-  updateTab(path, (tab) => ({
-    ...tab,
-    draft: formatter(tab.draft),
-    error: null,
-  }))
-}
-
-async function loadTab(path: string) {
-  if (!window.zkube?.zookeeper.open) {
-    ensureDefaultTab()
-    return
-  }
-
-  updateTab(path, (tab) => ({
-    ...tab,
-    loading: true,
-    error: null,
-  }))
-
-  try {
-    const snapshot = await window.zkube.zookeeper.open(path)
-    const draft = decoder.decode(snapshot.data)
-
-    updateTab(path, (tab) => ({
-      ...tab,
-      draft,
-      savedDraft: draft,
-      stat: snapshot.stat,
-      acl: snapshot.acl,
-      hasLoaded: true,
-      loading: false,
-      error: null,
-    }))
-  } catch (error) {
-    updateTab(path, (tab) => ({
-      ...tab,
-      loading: false,
-      error: getErrorMessage(error),
-    }))
+    defaultNodePath,
+    tabs: [],
   }
 }
 
-async function saveTab(path: string) {
-  const tab = state.tabs.find((entry) => entry.path === path)
+export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
+  ...initialState(),
+  ensureDefaultTab: () => {
+    const { activePath, defaultNodePath: path, tabs } = get()
 
-  if (!tab || !window.zkube?.zookeeper.update) {
-    return
-  }
+    if (tabs.some((tab) => tab.path === path)) {
+      if (!activePath) {
+        set({ activePath: path })
+      }
+      return
+    }
 
-  updateTab(path, (current) => ({
-    ...current,
-    saving: true,
-    error: null,
-  }))
-
-  try {
-    await window.zkube.zookeeper.update(
-      path,
-      encoder.encode(tab.draft),
-      tab.stat.version,
-    )
-
-    updateTab(path, (current) => ({
-      ...current,
-      savedDraft: current.draft,
-      saving: false,
-      error: null,
+    set({
+      activePath: path,
+      tabs: [...tabs, createTab(path)],
+    })
+  },
+  setActiveTab: (path) => {
+    set((state) => ({
+      activePath: path,
+      tabs: upsertTab(state.tabs, path, (tab) => tab),
     }))
-  } catch (error) {
-    updateTab(path, (current) => ({
-      ...current,
-      saving: false,
-      error: getErrorMessage(error),
+  },
+  setActivePane: (path, pane) => {
+    set((state) => ({
+      activePath: path,
+      tabs: upsertTab(state.tabs, path, (tab) => ({
+        ...tab,
+        activePane: pane,
+      })),
     }))
-  }
-}
+  },
+  setDraft: (path, draft) => {
+    set((state) => ({
+      activePath: path,
+      tabs: upsertTab(state.tabs, path, (tab) => ({
+        ...tab,
+        draft,
+        error: null,
+      })),
+    }))
+  },
+  applyFormatter: (path, formatter) => {
+    set((state) => ({
+      activePath: path,
+      tabs: upsertTab(state.tabs, path, (tab) => ({
+        ...tab,
+        draft: formatter(tab.draft),
+        error: null,
+      })),
+    }))
+  },
+  loadTab: async (path) => {
+    if (!window.zkube?.zookeeper.open) {
+      return
+    }
+
+    const currentTab = get().tabs.find((tab) => tab.path === path) ?? createTab(path)
+    if (currentTab.loadState === 'loading' || currentTab.loadState === 'ready') {
+      return
+    }
+
+    set((state) => ({
+      activePath: path,
+      tabs: upsertTab(state.tabs, path, (tab) => ({
+        ...tab,
+        loadState: 'loading',
+        error: null,
+      })),
+    }))
+
+    try {
+      const snapshot = await window.zkube.zookeeper.open(path)
+      const draft = decoder.decode(snapshot.data)
+
+      set((state) => ({
+        activePath: path,
+        tabs: upsertTab(state.tabs, path, (tab) => ({
+          ...tab,
+          draft,
+          savedDraft: draft,
+          stat: snapshot.stat,
+          acl: snapshot.acl,
+          loadState: 'ready',
+          error: null,
+        })),
+      }))
+    } catch (error) {
+      set((state) => ({
+        activePath: path,
+        tabs: upsertTab(state.tabs, path, (tab) => ({
+          ...tab,
+          loadState: 'error',
+          error: getErrorMessage(error),
+        })),
+      }))
+    }
+  },
+  saveTab: async (path) => {
+    const currentTab = get().tabs.find((tab) => tab.path === path)
+
+    if (
+      !currentTab ||
+      currentTab.loadState !== 'ready' ||
+      currentTab.saving ||
+      !window.zkube?.zookeeper.update
+    ) {
+      return
+    }
+
+    const draftToSave = currentTab.draft
+    const versionToSave = currentTab.stat.version
+
+    set((state) => ({
+      tabs: state.tabs.map((tab) =>
+        tab.path === path
+          ? {
+              ...tab,
+              saving: true,
+              error: null,
+            }
+          : tab,
+      ),
+    }))
+
+    try {
+      await window.zkube.zookeeper.update(
+        path,
+        encoder.encode(draftToSave),
+        versionToSave,
+      )
+
+      set((state) => ({
+        tabs: state.tabs.map((tab) =>
+          tab.path === path
+            ? {
+                ...tab,
+                savedDraft: draftToSave,
+                stat: {
+                  ...tab.stat,
+                  version: Math.max(tab.stat.version, versionToSave + 1),
+                },
+                saving: false,
+                error: null,
+              }
+            : tab,
+        ),
+      }))
+    } catch (error) {
+      set((state) => ({
+        tabs: state.tabs.map((tab) =>
+          tab.path === path
+            ? {
+                ...tab,
+                saving: false,
+                error: getErrorMessage(error),
+              }
+            : tab,
+        ),
+      }))
+    }
+  },
+}))
 
 export function resetWorkbenchStore() {
-  state = initialState
-  emitChange()
-}
-
-export function useWorkbenchStore() {
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
-
-  return {
-    ...snapshot,
-    defaultNodePath,
-    ensureDefaultTab,
-    setActiveTab,
-    setActivePane,
-    setDraft,
-    applyFormatter,
-    loadTab,
-    saveTab,
-  }
+  useWorkbenchStore.setState(initialState())
 }
