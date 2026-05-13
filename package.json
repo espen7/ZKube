@@ -6,14 +6,17 @@
   "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "vite",
-    "build": "npm run build:renderer && npm run build:electron",
-    "build:renderer": "vite build",
+    "build": "npm run build:renderer && npm run build:electron && npm run package:win",
+    "build:renderer": "vite build --base ./",
     "build:electron": "npm run build:electron:main && npm run build:electron:preload",
-    "build:electron:main": "vite build --mode electron-main",
-    "build:electron:preload": "vite build --mode electron-preload",
+    "build:electron:main": "vite build --mode electron-main && npm run patch:electron-main-bundle",
+    "build:electron:preload": "vite build --mode electron-preload && npm run patch:electron-preload-bundle",
+    "package:win": "electron-builder --config electron-builder.yml",
+    "patch:electron-main-bundle": "node -e \"const fs = require('node:fs'); const file = 'dist-electron/main/index.js'; let code = fs.readFileSync(file, 'utf8'); const electronImport = 'import { BrowserWindow as n, app as r, ipcMain as i, safeStorage as a } from \\\"electron\\\";'; if (!code.includes('y.createRequire')) process.exit(0); if (!code.includes(electronImport)) { console.error('Expected electron import not found in main bundle'); process.exit(1); } code = code.replace(electronImport, electronImport + '\\nimport { createRequire as y } from \\\"node:module\\\";'); code = code.replace(/var y = [\\s\\S]*?, b = \\[/, 'var b = ['); code = code.replace(/], x = \\(0, y\\.createRequire\\)\\(import\\.meta\\.url\\);/, '], x = y(import.meta.url);'); fs.writeFileSync(file, code);\"",
+    "patch:electron-preload-bundle": "node -e \"const fs = require('node:fs'); const file = 'dist-electron/preload/index.js'; let code = fs.readFileSync(file, 'utf8'); const esmImport = 'import { contextBridge as e, ipcRenderer as t } from \\\"electron\\\";'; if (!code.includes(esmImport)) process.exit(0); code = code.replace(esmImport, 'const { contextBridge: e, ipcRenderer: t } = require(\\\"electron\\\");'); fs.writeFileSync(file, code);\"",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run",
-    "test:e2e": "playwright test tests/e2e --pass-with-no-tests"
+    "test:unit": "vitest run tests/domain tests/renderer",
+    "test:e2e": "npm run build:renderer && npm run build:electron && playwright test tests/e2e --pass-with-no-tests"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
@@ -32,6 +35,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "electron": "42.0.1",
+    "electron-builder": "^26.8.1",
     "jsdom": "^29.1.1",
     "typescript": "^6.0.3",
     "vite": "^8.0.12",

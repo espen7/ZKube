@@ -1,0 +1,15 @@
+appId: com.zkube.desktop
+productName: ZKube
+electronDist: node_modules/electron/dist
+directories:
+  output: release
+files:
+  - dist/**
+  - dist-electron/**
+win:
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
