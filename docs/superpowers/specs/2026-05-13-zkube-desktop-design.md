@@ -1,99 +1,118 @@
-# ZKube Desktop Design
+# ZKube 桌面端设计稿
 
-**Date:** 2026-05-13
+**日期：** 2026-05-13
 
-**Status:** Approved in conversation, pending written-spec review
+**状态：** 会话内已确认，等待书面版评审
 
-## Summary
+## 一、概述
 
-ZKube is a Windows-first ZooKeeper desktop client built with modern Electron and React. It takes its functional scope from PrettyZoo's core day-to-day workflow, but its product feel, layout hierarchy, and desktop polish should lean closer to RedisInsight.
+ZKube 是一个面向 Windows 首发的 ZooKeeper 桌面可视化工具，使用现代版 Electron 与 React 构建。它的功能范围参考 PrettyZoo 的核心日常操作能力，但整体产品气质、界面层级和桌面端质感应更接近 RedisInsight。
 
-The first release should prioritize a strong operator workspace over breadth. It will focus on direct ZooKeeper connections, multi-connection management, node browsing and editing, focused real-time refresh, ACL editing, and a professional desktop UI. SSH tunnel support, terminal features, monitoring dashboards, and plugin-style extensibility are explicitly deferred.
+第一版的目标不是“尽可能多功能”，而是先把核心工作台做扎实。首版聚焦以下能力：
 
-## Product Goals
+- 直连 ZooKeeper
+- 多连接管理
+- 节点树浏览与筛选
+- 节点查看、编辑、创建、删除
+- ACL 查看与编辑
+- 局部实时刷新
+- 更现代、更专业的桌面端 UI
 
-1. Provide a modern Windows desktop GUI for ZooKeeper that feels faster and more polished than traditional Java desktop tools.
-2. Cover the highest-frequency workflows for engineers and operators:
-   - manage multiple connections
-   - browse and search the node tree
-   - inspect and edit node data
-   - create and delete nodes
-   - view and edit ACLs
-3. Make the UI feel intentional and productive, with layout and interaction patterns inspired by RedisInsight rather than legacy admin panels.
-4. Keep the architecture light enough for a fast v1 while preserving clean extension points for future SSH tunnel, monitoring, and command features.
+以下内容明确延后：
 
-## Non-Goals For V1
+- SSH Tunnel
+- 终端模式
+- 监控看板
+- 插件化扩展能力
 
-- SSH tunnel support
-- Embedded terminal / command-line mode
-- Multi-platform packaging beyond Windows
-- Full-tree watcher coverage
-- Monitoring dashboards
-- Draft auto-recovery
-- History versioning or diff compare
-- Plugin system
+## 二、产品目标
 
-## Confirmed Scope Decisions
+1. 提供一个现代化的 Windows 桌面 ZooKeeper GUI，整体体验明显优于传统 Java 桌面工具。
+2. 覆盖工程师和运维最常用的高频操作：
+   - 管理多个连接
+   - 浏览和搜索节点树
+   - 查看和编辑节点数据
+   - 创建和删除节点
+   - 查看和编辑 ACL
+3. 界面风格要有明确产品感，布局与交互节奏参考 RedisInsight，而不是传统后台模板或老式桌面工具。
+4. 架构上保持轻量，但要为后续 SSH Tunnel、监控、命令面板等能力预留清晰扩展点。
 
-- **Platform:** Windows only for the first release
-- **Connection mode:** direct ZooKeeper connection only
-- **Functional scope:** core workbench first, not full PrettyZoo parity
-- **Editor level:** advanced editor with syntax highlighting
-- **Secrets storage:** save connection configuration locally, with sensitive data protected by Windows-native secure storage
+## 三、V1 非目标
 
-## Reference Direction
+第一版明确不做以下内容：
 
-### PrettyZoo Reference
+- SSH Tunnel 支持
+- 内置终端 / command line 模式
+- Windows 之外的平台打包
+- 全树 watcher 覆盖
+- 监控和指标看板
+- 草稿自动恢复
+- 历史版本与 diff 对比
+- 插件系统
 
-PrettyZoo is the feature reference, especially for:
+## 四、已确认的范围约束
 
-- multi-connection workflows
-- node CRUD operations
-- ACL management
-- tree-based exploration
-- formatted JSON and XML display
+- **首发平台：** 仅 Windows
+- **连接模式：** 仅支持直连 ZooKeeper
+- **功能优先级：** 核心工作台优先，不追求完整 PrettyZoo 功能对齐
+- **编辑器能力：** 使用高级编辑器，支持语法高亮
+- **敏感信息存储：** 本地保存连接配置，但敏感信息通过 Windows 原生安全机制保护
 
-ZKube should reproduce the most useful operational workflows from that tool, while avoiding its older visual density and desktop-era interaction patterns.
+## 五、参考方向
 
-### RedisInsight Reference
+### 5.1 PrettyZoo 参考项
 
-RedisInsight is the design and layout reference, especially for:
+PrettyZoo 主要作为功能参考，重点借鉴以下能力：
 
-- spatial hierarchy
-- clear action entry points
-- multi-panel workbench structure
-- stronger visual polish
-- code-editor-centered data workflows
+- 多连接工作流
+- 节点增删改查
+- ACL 管理
+- 树状浏览体验
+- JSON / XML 格式化显示
 
-ZKube should feel like a modern operator console, not a generic admin dashboard and not a direct PrettyZoo visual clone.
+ZKube 需要把这些高价值操作流保留下来，但避免沿用 PrettyZoo 偏老式、偏拥挤的桌面 UI 风格。
 
-## Architecture
+### 5.2 RedisInsight 参考项
 
-The recommended architecture is a layered desktop application:
+RedisInsight 主要作为设计和工程取向参考，重点借鉴：
+
+- 空间层级清晰的工作台布局
+- 明确的操作入口
+- 多面板桌面控制台结构
+- 更现代的视觉质感
+- 围绕代码编辑器展开的数据编辑体验
+
+ZKube 应该呈现为一个现代化的运维控制台，而不是通用后台模板，也不是 PrettyZoo 的视觉复刻版。
+
+## 六、总体架构
+
+推荐采用轻量分层桌面架构：
 
 - `Electron Main`
 - `Preload IPC Bridge`
 - `React Renderer`
-- `Node-based Domain Services`
+- `Node Domain Services`
 - `Infrastructure Adapters`
 
-This keeps the app lighter than a RedisInsight-style embedded API server while avoiding the fragility of putting all ZooKeeper logic directly into Electron window code.
+这个方案比 RedisInsight 那种嵌入本地后端服务的结构更轻，也比把所有 ZooKeeper 逻辑直接塞进 Electron 窗口代码里更稳。
 
-### Main Process Responsibilities
+### 6.1 Main Process 职责
 
-- create and manage the application window
-- register native menus and app lifecycle events
-- locate and manage user config directories
-- host privileged filesystem and OS integrations
-- coordinate long-lived domain services when needed
+主进程负责：
 
-The main process must not become a dump site for UI state or ZooKeeper interaction details.
+- 创建和管理应用窗口
+- 注册原生菜单与生命周期事件
+- 处理配置目录与运行时路径
+- 承载系统级能力与高权限访问
+- 在必要时协调长生命周期领域服务
 
-### Preload Responsibilities
+主进程不能演变成 UI 状态和业务逻辑的杂物间。
 
-The preload layer exposes a narrow, audited IPC surface to the renderer. The renderer should never receive raw Node or Electron privileges.
+### 6.2 Preload 职责
 
-Initial API surface should include methods in these groups:
+Preload 层向 renderer 暴露受控、白名单化的 IPC 能力，renderer 不直接获得 Node 或 Electron 的原始权限。
+
+首版 API 可以按以下分组设计：
 
 - `connections.*`
 - `tree.*`
@@ -101,59 +120,59 @@ Initial API surface should include methods in these groups:
 - `acl.*`
 - `app.*`
 
-Representative operations:
+代表性操作包括：
 
-- list, create, update, delete, and connect stored connections
-- load children for a path
-- fetch node data, stat, and ACL
-- save node contents
-- create and delete nodes
-- subscribe to connection and node events
+- 查询、创建、更新、删除、连接已保存连接
+- 加载指定路径的子节点
+- 获取节点数据、stat 信息和 ACL
+- 保存节点内容
+- 创建和删除节点
+- 订阅连接状态和节点变化事件
 
-### Renderer Responsibilities
+### 6.3 Renderer 职责
 
-The renderer owns:
+Renderer 负责：
 
-- application layout
-- navigation state
-- tab state
-- form state
-- user feedback
-- command bar interactions
-- node editing experience
+- 应用整体布局
+- 导航状态
+- 标签页状态
+- 表单交互
+- 用户反馈
+- 命令栏交互
+- 节点编辑体验
 
-It should not know transport-level ZooKeeper details. It consumes typed view models and domain events through the preload API.
+Renderer 不应理解 ZooKeeper 的传输层细节，只消费 preload 暴露出的类型化数据和领域事件。
 
-### Domain Services Responsibilities
+### 6.4 Domain Services 职责
 
-The domain layer owns the core behavior:
+领域层负责核心行为：
 
-- connection session lifecycle
-- ZooKeeper client management
-- watcher registration and disposal
-- lazy tree loading
-- node cache coordination
-- data formatting
-- ACL translation and validation
-- error normalization
+- 连接会话生命周期
+- ZooKeeper client 管理
+- watcher 注册与释放
+- 树懒加载
+- 节点缓存协调
+- 数据格式化
+- ACL 转换与校验
+- 错误归一化
 
-This layer is the behavioral heart of the app and should remain testable without a rendered UI.
+这一层是整个产品行为的核心，必须能在没有 UI 的情况下被测试。
 
-### Infrastructure Responsibilities
+### 6.5 Infrastructure 职责
 
-Infrastructure adapters isolate external concerns:
+基础设施层隔离外部依赖：
 
 - ZooKeeper client adapter
-- local configuration storage
-- Windows secure secret storage
-- logging
-- packaging-aware path helpers
+- 本地配置存储
+- Windows 安全存储
+- 日志能力
+- 与打包相关的路径处理
 
-This makes it easier to swap or upgrade external libraries without rewriting UI or domain behavior.
+这样后续替换底层库时，不需要把 UI 和业务逻辑一起重写。
 
-## Proposed Project Structure
+## 七、建议的项目结构
 
-The initial file and folder layout should follow these boundaries:
+初始目录建议按职责划分，而不是只按技术层拆分：
 
 - `electron/main/`
 - `electron/preload/`
@@ -174,251 +193,251 @@ The initial file and folder layout should follow these boundaries:
 - `src/infrastructure/zookeeper/`
 - `src/shared/`
 
-The structure is intentionally grouped by responsibility, not by generic technical layer alone.
+这个结构的重点是“按责任边界拆”，避免文件和模块过早失控。
 
-## UI And Interaction Design
+## 八、界面与交互设计
 
-### Global Layout
+### 8.1 全局布局
 
-The desktop layout should use a three-column workbench:
+桌面端采用“三栏工作台”布局：
 
-1. left workspace sidebar
-2. center tabbed content area
-3. right contextual details drawer
+1. 左侧工作区侧栏
+2. 中央标签内容区
+3. 右侧上下文抽屉
 
-It should also include:
+同时包含：
 
-- a top command bar
-- a bottom status bar
+- 顶部命令栏
+- 底部状态栏
 
-This produces a more professional and spacious information hierarchy than a single crowded split pane.
+这套结构比传统双栏或单详情面板更适合做出专业桌面工具的空间层次。
 
-### Left Workspace Sidebar
+### 8.2 左侧工作区侧栏
 
-The left column combines:
+左侧区域组合以下内容：
 
-- saved connections
-- current connection state
-- the active node tree
+- 已保存连接
+- 当前连接状态
+- 当前连接下的节点树
 
-Design intent:
+设计意图：
 
-- connection selection should feel like switching workspaces
-- the node tree should support lazy expansion
-- filtering should be immediate on loaded nodes
-- node actions should be available through context menus and inline shortcuts
+- 连接切换应像切换工作区，而不是简单下拉框
+- 节点树支持懒加载展开
+- 已加载节点上的过滤应即时反馈
+- 节点操作通过右键菜单和局部快捷入口提供
 
-The sidebar should visually separate connection controls from tree navigation so the two concepts do not blur together.
+视觉上要把“连接管理”和“树导航”明确区分开，避免混成一个密集列表。
 
-### Center Tabbed Content Area
+### 8.3 中央标签内容区
 
-The center column is the primary work surface. Opening a node should create or focus a tab rather than forcing every action into one shared detail panel.
+中央区域是主要工作面。打开节点后，应进入标签页，而不是所有操作都挤在同一个详情区里。
 
-Each node tab should expose three primary panels:
+每个节点标签页首版包含三个主面板：
 
 - `Data`
 - `Meta`
 - `ACL`
 
-This preserves focus and lets users keep multiple nodes open in parallel.
+这样用户可以并行打开多个节点，并在它们之间快速切换。
 
-### Right Context Drawer
+### 8.4 右侧上下文抽屉
 
-The right drawer provides lightweight context and fast actions:
+右侧抽屉用于承载轻量上下文和快捷操作：
 
-- current path summary
-- stat highlights
-- quick copy path
-- refresh current node
-- create child node
-- delete node
+- 当前路径摘要
+- 关键 stat 信息
+- 复制路径
+- 刷新当前节点
+- 创建子节点
+- 删除节点
 
-On wider desktop layouts it should stay visible. On narrower widths it can collapse behind a toggle.
+宽屏桌面下默认常驻，窄窗口下可折叠。
 
-### Top Command Bar
+### 8.5 顶部命令栏
 
-The command bar is a compact action layer, not a terminal. It should include:
+命令栏不是终端，而是全局操作带，建议包括：
 
-- global node search entry
-- active connection switcher
-- create node action
-- refresh action
-- import and export connection settings
+- 全局节点搜索入口
+- 当前连接切换器
+- 创建节点
+- 刷新动作
+- 连接配置导入与导出
 
-This brings the most common actions into one predictable place.
+这样高频操作都有稳定入口，不需要用户到处找按钮。
 
-### Bottom Status Bar
+### 8.6 底部状态栏
 
-The status bar should communicate runtime state clearly:
+状态栏负责提供运行时反馈：
 
-- connection state
-- last refresh or sync time
-- active watcher count
-- background operation feedback
+- 当前连接状态
+- 最近一次刷新或同步时间
+- 当前 watcher 数量
+- 后台操作反馈
 
-This reduces ambiguity during reconnects, refreshes, and save operations.
+这能显著降低“到底连没连上”“刚才是不是刷新成功了”这类不确定感。
 
-## Visual Direction
+## 九、视觉方向
 
-The visual design should be clean, neutral, and technical.
+整体视觉应偏中性、专业、技术型。
 
-### Desired Feel
+### 9.1 目标感受
 
-- professional operator console
-- modern desktop app
-- calm but high-information workspace
+- 专业运维控制台
+- 现代桌面应用
+- 信息密度高但不压迫
 
-### Avoid
+### 9.2 需要避免
 
-- legacy Java desktop styling
-- generic admin template styling
-- crowded borders and low-value chrome
-- novelty-heavy gradients or decorative visuals that compete with data
+- 传统 Java 桌面工具观感
+- 通用 admin 模板观感
+- 低价值边框和过重 chrome
+- 抢戏的渐变与装饰性背景
 
-### Styling Principles
+### 9.3 样式原则
 
-- strong spacing rhythm
-- restrained color palette
-- purposeful accent color
-- clear card and panel boundaries
-- typography hierarchy that separates navigation, metadata, and code editing
+- 明确的间距节奏
+- 克制的配色体系
+- 少量但有识别度的强调色
+- 清晰的面板分组边界
+- 明确区分导航、元信息和代码编辑内容的排版层级
 
-The editor surface should use an appropriate monospace font, while the surrounding UI should use a polished, readable sans-serif stack.
+编辑器区域使用合适的等宽字体，外围 UI 使用成熟、清晰的无衬线字体体系。
 
-## Data Flow
+## 十、数据流设计
 
-The first release should use a session-driven, on-demand loading model.
+首版采用“连接会话驱动 + 按需加载”的模式。
 
-### Session Lifecycle
+### 10.1 会话生命周期
 
-When a user opens a connection, the app creates a session object that owns:
+当用户打开一个连接时，应用创建一个 session，对以下内容负责：
 
-- the active ZooKeeper client
-- connection status
-- tree cache
-- open-node subscriptions
-- watcher registrations
+- 当前 ZooKeeper client
+- 连接状态
+- 树缓存
+- 已打开节点的订阅关系
+- watcher 注册表
 
-This session is the source of truth for that connection's runtime state.
+这个 session 是该连接运行期状态的事实来源。
 
-### Tree Loading
+### 10.2 树加载策略
 
-The tree should load lazily:
+节点树采用懒加载：
 
-- root-level nodes load on connect
-- child nodes load on expand
-- the app caches loaded children per session
+- 连接建立后先加载根层级
+- 用户展开节点时再加载子节点
+- 已加载的 children 在当前 session 内缓存
 
-The app should not attempt to mirror the full ZooKeeper tree in memory.
+首版不尝试把整个 ZooKeeper 树镜像到内存中。
 
-### Node Detail Loading
+### 10.3 节点详情加载
 
-Opening a node tab loads:
+打开节点标签页时加载：
 
-- raw node data
-- stat metadata
-- ACL data
+- 原始节点数据
+- stat 元数据
+- ACL 数据
 
-These are fetched when needed and refreshed again after save or event invalidation.
+这些内容按需获取，在保存成功或事件失效后重新拉取。
 
-### Search Behavior
+### 10.4 搜索策略
 
-Two search modes should be supported:
+支持两种搜索模式：
 
-1. fast filter over already-loaded tree content
-2. explicit deeper search action for remote traversal
+1. 针对已加载树内容的即时过滤
+2. 用户显式触发的更深层远端搜索
 
-The deeper search must be intentional rather than tied to every keystroke.
+深层搜索不能绑定到每次输入，否则首版会很容易产生不必要的远端遍历压力。
 
-## Real-Time Sync Strategy
+## 十一、实时同步策略
 
-The first release should provide focused real-time responsiveness, not global watch coverage.
+首版提供“聚焦式实时响应”，而不是“全树实时同步”。
 
-### Watch Scope
+### 11.1 Watcher 覆盖范围
 
-Watchers should be registered only for:
+Watcher 只注册在以下范围：
 
-- expanded tree branches
-- currently opened node tabs
-- connection state
+- 当前已展开的树分支
+- 当前已打开的节点标签
+- 连接状态
 
-This limits noise, resource consumption, and complexity.
+这样可以控制复杂度、资源消耗和噪音。
 
-### Event Types
+### 11.2 事件模型
 
-The domain layer should normalize low-level events into a small set of app-level events:
+领域层将底层变化统一成少量应用级事件：
 
 - `nodeDataChanged`
 - `nodeChildrenChanged`
 - `nodeDeleted`
 - `connectionStateChanged`
 
-These events travel through IPC to the renderer, which refreshes only affected UI regions.
+这些事件通过 IPC 推送给 renderer，再由 renderer 仅刷新受影响的局部区域。
 
-### Refresh Behavior
+### 11.3 刷新行为
 
-When an event arrives:
+收到事件后：
 
-- a changed node tab refreshes its data
-- a changed parent branch refreshes its children list
-- a deleted node closes or marks the affected tab
-- a connection event updates the status bar and connection indicator
+- 当前节点标签刷新对应数据
+- 父分支刷新 children 列表
+- 已删除节点对应标签页关闭或标记失效
+- 连接状态变化同步到状态栏和连接指示器
 
-## Editing Experience
+## 十二、节点编辑体验
 
-The node data editor is one of the most important value surfaces in the product.
+节点数据编辑器是首版最重要的价值面之一。
 
-### Editor Capabilities
+### 12.1 编辑器能力
 
-The first release should support:
+首版支持：
 
-- plain text editing
-- syntax highlighting
-- JSON formatting
-- XML formatting
-- read-only and editable modes
-- save and refresh controls
+- 纯文本编辑
+- 语法高亮
+- JSON 格式化
+- XML 格式化
+- 只读与可编辑状态切换
+- 保存与刷新
 
-The implementation should use a serious editor component such as Monaco rather than a textarea-based stopgap.
+实现上应直接使用 Monaco 这类成熟编辑器，而不是 textarea 级别的临时方案。
 
-### Save Semantics
+### 12.2 保存语义
 
-All writes should go through a domain-level save operation that:
+所有写入都通过领域层统一保存流程处理，包括：
 
-- validates current node existence
-- checks version-aware update behavior
-- maps known failure conditions into actionable UI messages
-- refreshes the active tab and affected tree state on success
+- 校验节点当前是否存在
+- 处理基于版本的更新语义
+- 将常见失败情况映射成可操作的错误提示
+- 成功后刷新当前标签和受影响树状态
 
-## ACL Experience
+## 十三、ACL 体验
 
-ACLs should be editable without requiring users to memorize low-level structures.
+ACL 编辑不能要求用户记忆底层结构细节。
 
-### ACL UI
+### 13.1 ACL UI 形式
 
-The UI should present ACL entries in a structured form:
+UI 中每条 ACL 以结构化表单呈现：
 
 - scheme
 - id
 - permissions
 
-Permissions should be edited with clear toggles or checkboxes rather than requiring opaque manual strings.
+权限项以清晰的开关或复选框编辑，而不是要求用户自己拼接不可读字符串。
 
-### ACL Behavior
+### 13.2 ACL 行为
 
-The domain layer should:
+领域层负责：
 
-- convert UI ACL models into ZooKeeper client payloads
-- validate incomplete or unsupported ACL shapes
-- return readable validation errors
+- 将 UI 层 ACL 模型转换成 ZooKeeper client 所需结构
+- 校验不完整或不支持的 ACL 形式
+- 返回可读的校验错误
 
-## Error Handling
+## 十四、错误处理
 
-The app should distinguish between technical errors and operator-facing feedback.
+产品需要把“技术异常”和“用户可理解反馈”分开。
 
-### Error Categories
+### 14.1 错误分类
 
-Representative normalized error codes:
+代表性错误码：
 
 - `CONNECTION_TIMEOUT`
 - `CONNECTION_LOST`
@@ -428,36 +447,36 @@ Representative normalized error codes:
 - `ACL_INVALID`
 - `UNKNOWN_FAILURE`
 
-### Presentation Rules
+### 14.2 展示规则
 
-- transient success and warning feedback uses toast notifications
-- persistent runtime state appears in the status bar
-- inline field or editor problems appear near the affected interaction surface
+- 短时成功或警告反馈使用 toast
+- 持续性运行状态显示在状态栏
+- 输入或编辑相关问题贴近对应交互区域展示
 
-Raw stack traces must not be the primary user-facing message.
+原始异常堆栈不能直接作为主要用户提示。
 
-## Local Storage And Secrets
+## 十五、本地存储与敏感信息保护
 
-The app needs local persistence for convenience, but must not store sensitive data carelessly.
+应用需要本地持久化提升易用性，但不能粗暴保存敏感信息。
 
-### Persisted Locally
+### 15.1 本地持久化内容
 
-- saved connection definitions
-- recent connection history
-- window state
-- UI preferences
+- 已保存连接定义
+- 最近使用连接历史
+- 窗口状态
+- UI 偏好设置
 
-### Secret Handling
+### 15.2 敏感信息处理
 
-Sensitive connection material should be protected through Windows-native secure storage. The plaintext secret should not be written into the normal configuration file.
+连接中的敏感信息应通过 Windows 原生安全存储机制保护，普通配置文件中不写入明文。
 
-### Deferred Storage Features
+### 15.3 延后能力
 
-The first release should not persist unsaved node-edit drafts across restarts.
+首版不做未保存编辑草稿的跨重启恢复。
 
-## Recommended Technology Stack
+## 十六、推荐技术栈
 
-The implementation should use current stable desktop-web tooling.
+实现时采用当前稳定的现代桌面 Web 技术栈：
 
 - Electron `42.0.1`
 - React `19.2.6`
@@ -467,76 +486,76 @@ The implementation should use current stable desktop-web tooling.
 - electron-builder `26.0.12`
 - Monaco Editor
 
-### State Management
+### 16.1 状态管理
 
-Use a light client-state solution such as Zustand for renderer state that is purely presentational or session-adjacent.
+Renderer 层建议使用 Zustand 这一类轻量状态方案来承接纯表现层和会话邻近状态。
 
-Do not introduce a heavy global architecture by default. The core source of truth remains the domain session layer and IPC event stream.
+不默认引入过重的全局架构。真正的事实来源仍然是领域层 session 和 IPC 事件流。
 
-### Data Fetching Model
+### 16.2 数据获取模式
 
-Do not force a generic request cache abstraction over watcher-driven desktop behavior in v1. Event-driven refresh and focused local state are a better fit than a web-style server-state library as the primary model.
+首版不建议强行套用偏 Web 风格的通用请求缓存模型。对于 watcher 驱动的桌面应用，事件驱动刷新加局部状态更贴合实际。
 
-## Testing Strategy
+## 十七、测试策略
 
-The first release should test the behavior that is most likely to break operator trust.
+首版测试重点应放在最容易破坏用户信任的行为上。
 
-### Domain Tests
+### 17.1 领域层测试
 
-Cover:
+覆盖：
 
-- session lifecycle
-- watcher registration and disposal
-- event normalization
-- node save behavior
-- ACL mapping and validation
-- error normalization
+- session 生命周期
+- watcher 注册与释放
+- 事件归一化
+- 节点保存行为
+- ACL 映射与校验
+- 错误归一化
 
-### Renderer Tests
+### 17.2 Renderer 测试
 
-Cover:
+覆盖：
 
-- tree expansion behavior
-- tab opening and switching
-- editor save feedback
-- ACL form interaction
-- connection-state presentation
+- 树展开行为
+- 标签页打开与切换
+- 编辑器保存反馈
+- ACL 表单交互
+- 连接状态展示
 
-### Packaging Smoke Tests
+### 17.3 Windows 打包冒烟测试
 
-For Windows packaging, include at least:
+至少覆盖：
 
-- application launch smoke test
-- preload bridge availability check
-- config directory creation check
+- 应用启动冒烟测试
+- preload bridge 可用性检查
+- 配置目录创建检查
 
-## Release Boundary
+## 十八、首个可交付版本边界
 
-The first shippable milestone is a polished Windows desktop workbench that can:
+第一个可发版里程碑应是一个打磨过的 Windows 桌面工作台，能够：
 
-1. save and manage direct ZooKeeper connections
-2. browse a node tree with lazy loading
-3. open multiple node tabs
-4. view and edit node data with a rich editor
-5. create and delete nodes
-6. view and edit ACLs
-7. react to focused node and branch changes
+1. 保存和管理直连 ZooKeeper 连接
+2. 以懒加载方式浏览节点树
+3. 并行打开多个节点标签页
+4. 使用高级编辑器查看和编辑节点数据
+5. 创建和删除节点
+6. 查看和编辑 ACL
+7. 对当前关注节点和分支变化做出响应
 
-If a feature does not materially support that milestone, it should be deferred.
+凡是不直接支撑这一里程碑的能力，都应该延后。
 
-## Phase 2 Candidates
+## 十九、第二阶段候选方向
 
-After the first release is stable, the most natural next additions are:
+首版稳定后，优先级最高的后续方向包括：
 
-1. SSH tunnel support
-2. terminal or command pane
-3. broader search and bulk operations
-4. monitoring and dashboard views
-5. macOS and Linux packaging
-6. diff and history tooling
+1. SSH Tunnel
+2. 终端或命令面板
+3. 更强的搜索和批量操作
+4. 监控与看板视图
+5. macOS / Linux 打包
+6. diff 与历史版本工具
 
-## Open Implementation Notes
+## 二十、实现阶段备注
 
-- The exact ZooKeeper Node.js client should be chosen during implementation based on maintenance status, watch behavior, and Windows packaging compatibility.
-- The first implementation should keep IPC contracts explicit and typed from day one.
-- The UI should be built with desktop-sized layouts first, then tightened for smaller widths, rather than starting from a mobile-responsive mindset.
+- 具体使用哪个 ZooKeeper Node.js client，需要在实现阶段根据维护状态、watch 行为和 Windows 打包兼容性再定。
+- 从第一天开始就要把 IPC 契约做成显式、可类型约束的形式。
+- UI 设计应先按桌面大屏工作台思路实现，再向小窗口收紧，而不是从移动端响应式思路反推。
