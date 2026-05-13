@@ -35,7 +35,7 @@ export class SessionManager {
     return children
   }
 
-  async openNode(path: string): Promise<NodeSnapshot> {
+  async open(path: string): Promise<NodeSnapshot> {
     return this.requireClient().getNode(path)
   }
 
@@ -43,21 +43,22 @@ export class SessionManager {
     return this.requireClient().search(query)
   }
 
-  async createNode(path: string, data: Buffer): Promise<void> {
+  async create(path: string, data: Buffer): Promise<void> {
     const parent = parentPath(path)
     await this.requireClient().createNode(path, data)
     this.childrenCache.delete(parent)
     this.emit({ type: 'nodeChildrenChanged', path: parent })
   }
 
-  async deleteNode(path: string, version?: number): Promise<void> {
+  async delete(path: string, version?: number): Promise<void> {
     const parent = parentPath(path)
     await this.requireClient().deleteNode(path, version)
     this.childrenCache.delete(parent)
     this.emit({ type: 'nodeDeleted', path })
+    this.emit({ type: 'nodeChildrenChanged', path: parent })
   }
 
-  async updateNode(path: string, data: Buffer, version?: number): Promise<void> {
+  async update(path: string, data: Buffer, version?: number): Promise<void> {
     await this.requireClient().updateNode(path, data, version)
     this.emit({ type: 'nodeDataChanged', path })
   }
@@ -72,10 +73,26 @@ export class SessionManager {
     return () => this.listeners.delete(cb)
   }
 
-  private emit(event: RuntimeEvent): void {
+  emit(event: RuntimeEvent): void {
     for (const listener of this.listeners) {
       listener(event)
     }
+  }
+
+  async openNode(path: string): Promise<NodeSnapshot> {
+    return this.open(path)
+  }
+
+  async createNode(path: string, data: Buffer): Promise<void> {
+    await this.create(path, data)
+  }
+
+  async deleteNode(path: string, version?: number): Promise<void> {
+    await this.delete(path, version)
+  }
+
+  async updateNode(path: string, data: Buffer, version?: number): Promise<void> {
+    await this.update(path, data, version)
   }
 
   private requireClient(): ZooKeeperClient {

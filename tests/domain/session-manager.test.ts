@@ -75,14 +75,14 @@ describe('SessionManager', () => {
     const manager = new SessionManager(() => new FakeClient() as never)
     await manager.connect('local')
 
-    await expect(manager.openNode('/app')).resolves.toMatchObject({
+    await expect(manager.open('/app')).resolves.toMatchObject({
       path: '/app',
       stat: { version: 1, numChildren: 0 },
     })
     await expect(manager.search('app')).resolves.toEqual(['/app', '/config'])
   })
 
-  it('emits focused runtime events and invalidates parent cache after mutations', async () => {
+  it('supports the requested mutation API names and emits focused runtime events', async () => {
     const client = new FakeClient()
     const manager = new SessionManager(() => client as never)
     const events: Array<{ type: string; path?: string; state?: string }> = []
@@ -92,23 +92,53 @@ describe('SessionManager', () => {
 
     await manager.connect('local')
     await manager.loadChildren('/')
-    await manager.createNode('/service', Buffer.from('new'))
+    await manager.create('/service', Buffer.from('new'))
     await manager.loadChildren('/')
-    await manager.updateNode('/service', Buffer.from('updated'), 3)
+    await manager.update('/service', Buffer.from('updated'), 3)
     await manager.saveAcl('/service', [
       { scheme: 'world', id: 'anyone', permissions: ['read'] },
     ])
-    await manager.deleteNode('/service', 4)
+    await manager.delete('/service', 4)
     await manager.disconnect()
 
     expect(client.getChildrenCalls.get('/')).toBe(2)
+    expect(client.createNodeCalls).toEqual([
+      { path: '/service', data: Buffer.from('new') },
+    ])
+    expect(client.updateNodeCalls).toEqual([
+      { path: '/service', data: Buffer.from('updated'), version: 3 },
+    ])
+    expect(client.deleteNodeCalls).toEqual([
+      { path: '/service', version: 4 },
+    ])
+    expect(client.aclCalls).toEqual([
+      {
+        path: '/service',
+        acl: [{ scheme: 'world', id: 'anyone', permissions: ['read'] }],
+      },
+    ])
     expect(events).toEqual([
       { type: 'connectionStateChanged', state: 'connected' },
       { type: 'nodeChildrenChanged', path: '/' },
       { type: 'nodeDataChanged', path: '/service' },
       { type: 'nodeDataChanged', path: '/service' },
       { type: 'nodeDeleted', path: '/service' },
+      { type: 'nodeChildrenChanged', path: '/' },
       { type: 'connectionStateChanged', state: 'disconnected' },
+    ])
+  })
+
+  it('exposes a public emit method for runtime events', async () => {
+    const manager = new SessionManager(() => new FakeClient() as never)
+    const events: Array<{ type: string; state?: string }> = []
+    manager.subscribe((event) => {
+      events.push(event)
+    })
+
+    manager.emit({ type: 'connectionStateChanged', state: 'reconnecting' })
+
+    expect(events).toEqual([
+      { type: 'connectionStateChanged', state: 'reconnecting' },
     ])
   })
 })
