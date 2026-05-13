@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { StoredConnection } from '../../src/shared/models/connection'
+import { resetConnectionsStore } from '../../src/renderer/features/connections/useConnectionsStore'
 import App from '../../src/renderer/App'
 
 const savedConnections: StoredConnection[] = [
@@ -57,6 +58,7 @@ describe('Connections workspace', () => {
   })
 
   afterEach(() => {
+    resetConnectionsStore()
     window.zkube = originalZkube
   })
 
@@ -73,5 +75,42 @@ describe('Connections workspace', () => {
       screen.getByRole('dialog', { name: '新建连接' }),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('连接名称')).toBeInTheDocument()
+  })
+
+  it('surfaces exported connection JSON after clicking export', async () => {
+    window.zkube.connections.exportAll = vi
+      .fn()
+      .mockResolvedValue('[{"id":"local-zk"}]')
+
+    render(<App />)
+
+    await screen.findByText('本地 ZooKeeper')
+    fireEvent.click(screen.getByRole('button', { name: '导出' }))
+
+    expect(await screen.findByText('导出内容已就绪')).toBeInTheDocument()
+    expect(await screen.findByText('[{"id":"local-zk"}]')).toBeInTheDocument()
+  })
+
+  it('shows an inline error when connection fails', async () => {
+    window.zkube.connections.connect = vi
+      .fn()
+      .mockRejectedValue(new Error('连接失败'))
+
+    render(<App />)
+
+    await screen.findByText('本地 ZooKeeper')
+    fireEvent.click(screen.getAllByRole('button', { name: '连接' })[0])
+
+    expect(await screen.findByText('连接失败')).toBeInTheDocument()
+  })
+
+  it('shows an inline error when loading connections fails', async () => {
+    window.zkube.connections.list = vi
+      .fn()
+      .mockRejectedValue(new Error('连接配置损坏'))
+
+    render(<App />)
+
+    expect(await screen.findByText('连接配置损坏')).toBeInTheDocument()
   })
 })

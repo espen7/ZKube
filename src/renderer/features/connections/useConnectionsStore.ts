@@ -5,14 +5,20 @@ import type { StoredConnection } from '../../../shared/models/connection'
 type ConnectionsState = {
   items: StoredConnection[]
   dialogOpen: boolean
+  feedback: string | null
+  exportPreview: string | null
+}
+
+const initialState: ConnectionsState = {
+  items: [],
+  dialogOpen: false,
+  feedback: null,
+  exportPreview: null,
 }
 
 const listeners = new Set<() => void>()
 
-let state: ConnectionsState = {
-  items: [],
-  dialogOpen: false,
-}
+let state: ConnectionsState = initialState
 
 function emitChange() {
   for (const listener of listeners) {
@@ -34,13 +40,29 @@ function getSnapshot() {
   return state
 }
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message
+  }
+
+  return '操作失败，请稍后重试。'
+}
+
 async function load() {
   if (!window.zkube?.connections.list) {
     return
   }
 
-  const items = await window.zkube.connections.list()
-  setState({ items })
+  try {
+    const items = await window.zkube.connections.list()
+    setState({ items, feedback: null })
+  } catch (error) {
+    setState({
+      items: [],
+      feedback: getErrorMessage(error),
+      exportPreview: null,
+    })
+  }
 }
 
 async function connect(connectionId: string) {
@@ -48,7 +70,12 @@ async function connect(connectionId: string) {
     return
   }
 
-  await window.zkube.connections.connect(connectionId)
+  try {
+    await window.zkube.connections.connect(connectionId)
+    setState({ feedback: null })
+  } catch (error) {
+    setState({ feedback: getErrorMessage(error) })
+  }
 }
 
 async function exportAll() {
@@ -56,7 +83,18 @@ async function exportAll() {
     return
   }
 
-  await window.zkube.connections.exportAll()
+  try {
+    const content = await window.zkube.connections.exportAll()
+    setState({
+      exportPreview: content,
+      feedback: '导出内容已就绪',
+    })
+  } catch (error) {
+    setState({
+      exportPreview: null,
+      feedback: getErrorMessage(error),
+    })
+  }
 }
 
 function openDialog() {
@@ -65,6 +103,11 @@ function openDialog() {
 
 function closeDialog() {
   setState({ dialogOpen: false })
+}
+
+export function resetConnectionsStore() {
+  state = initialState
+  emitChange()
 }
 
 export function useConnectionsStore() {

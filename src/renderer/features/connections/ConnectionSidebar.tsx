@@ -3,7 +3,15 @@ import { useEffect } from 'react'
 import { useConnectionsStore } from './useConnectionsStore'
 
 export function ConnectionSidebar() {
-  const { items, load, connect, exportAll, openDialog } = useConnectionsStore()
+  const {
+    items,
+    load,
+    connect,
+    exportAll,
+    openDialog,
+    feedback,
+    exportPreview,
+  } = useConnectionsStore()
 
   useEffect(() => {
     void load()
@@ -27,6 +35,14 @@ export function ConnectionSidebar() {
       </div>
       <div className="panel__body">
         <div className="muted">已保存连接</div>
+        {feedback ? (
+          <div className="sidebar-feedback" role="status">
+            {feedback}
+          </div>
+        ) : null}
+        {exportPreview ? (
+          <pre className="export-preview">{exportPreview}</pre>
+        ) : null}
         <div className="sidebar-list">
           {items.length === 0 ? (
             <div className="placeholder-row">还没有保存的连接，先创建一个开始吧。</div>
