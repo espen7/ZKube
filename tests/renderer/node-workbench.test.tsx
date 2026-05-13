@@ -155,6 +155,22 @@ describe('node workbench', () => {
     expect(screen.getByTestId('monaco-editor')).toHaveValue('{"service":"zk"}')
   })
 
+  it('does not allow saving a world:anyone acl when the record is absent', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'ACL' }))
+
+    expect(
+      await screen.findByText('This node does not expose a `world:anyone` ACL record.'),
+    ).toBeInTheDocument()
+
+    expect(screen.getByRole('button', { name: 'Save ACL' })).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: 'read' })).toBeDisabled()
+    expect(saveAclMock).not.toHaveBeenCalled()
+  })
+
   it('saves the world:anyone acl entry from the acl pane', async () => {
     openMock.mockResolvedValueOnce({
       path: '/config/service',

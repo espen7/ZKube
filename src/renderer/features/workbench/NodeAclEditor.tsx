@@ -43,9 +43,11 @@ function buildNextAcl(acl: AclEntry[], permissions: PermissionKey[]) {
 }
 
 export function NodeAclEditor({ path, acl, onSaved }: NodeAclEditorProps) {
+  const worldAnyoneEntry = useMemo(() => getWorldAnyoneEntry(acl), [acl])
+  const canEditWorldAnyone = Boolean(worldAnyoneEntry)
   const initialPermissions = useMemo(
-    () => normalizePermissions(getWorldAnyoneEntry(acl)?.permissions ?? ['read']),
-    [acl],
+    () => normalizePermissions(worldAnyoneEntry?.permissions ?? []),
+    [worldAnyoneEntry],
   )
   const permissionSignature = initialPermissions.join('|')
   const [selectedPermissions, setSelectedPermissions] =
@@ -60,7 +62,7 @@ export function NodeAclEditor({ path, acl, onSaved }: NodeAclEditorProps) {
   }, [path, permissionSignature])
 
   async function handleSave() {
-    if (!window.zkube?.zookeeper.saveAcl) {
+    if (!window.zkube?.zookeeper.saveAcl || !canEditWorldAnyone) {
       return
     }
 
@@ -90,7 +92,11 @@ export function NodeAclEditor({ path, acl, onSaved }: NodeAclEditorProps) {
         </div>
       </div>
       <div className="panel__body">
-        <div className="placeholder-row">Editing record `world:anyone`.</div>
+        <div className="placeholder-row">
+          {canEditWorldAnyone
+            ? 'Editing record `world:anyone`.'
+            : 'This node does not expose a `world:anyone` ACL record.'}
+        </div>
         <div
           style={{
             display: 'grid',
@@ -110,6 +116,7 @@ export function NodeAclEditor({ path, acl, onSaved }: NodeAclEditorProps) {
               <input
                 type="checkbox"
                 checked={selectedPermissions.includes(permission)}
+                disabled={!canEditWorldAnyone}
                 onChange={(event) => {
                   setSelectedPermissions((current) => {
                     const nextPermissions = event.target.checked
@@ -134,7 +141,11 @@ export function NodeAclEditor({ path, acl, onSaved }: NodeAclEditorProps) {
             flexWrap: 'wrap',
           }}
         >
-          <button type="button" onClick={() => void handleSave()} disabled={saving}>
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={saving || !canEditWorldAnyone}
+          >
             {saving ? 'Saving ACL...' : 'Save ACL'}
           </button>
           {feedback ? <p role="status">{feedback}</p> : null}
