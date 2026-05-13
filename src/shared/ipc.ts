@@ -24,6 +24,7 @@ export const channels = {
 } as const
 
 export type RuntimeEventPayload = RuntimeEvent
+export type BinaryPayload = Uint8Array
 
 export type InvokeRequestMap = {
   [channels.appGetVersion]: undefined
@@ -37,9 +38,13 @@ export type InvokeRequestMap = {
   [channels.zookeeperLoadChildren]: { path: string }
   [channels.zookeeperOpen]: { path: string }
   [channels.zookeeperSearch]: { query: string }
-  [channels.zookeeperCreate]: { path: string; data: Buffer }
+  [channels.zookeeperCreate]: { path: string; data: BinaryPayload }
   [channels.zookeeperDelete]: { path: string; version?: number }
-  [channels.zookeeperUpdate]: { path: string; data: Buffer; version?: number }
+  [channels.zookeeperUpdate]: {
+    path: string
+    data: BinaryPayload
+    version?: number
+  }
   [channels.zookeeperSaveAcl]: { path: string; acl: AclEntry[] }
 }
 
@@ -104,9 +109,9 @@ export interface DesktopApi {
     search(
       query: string,
     ): Promise<InvokeResponseMap[typeof channels.zookeeperSearch]>
-    create(path: string, data: Buffer): Promise<void>
+    create(path: string, data: BinaryPayload): Promise<void>
     delete(path: string, version?: number): Promise<void>
-    update(path: string, data: Buffer, version?: number): Promise<void>
+    update(path: string, data: BinaryPayload, version?: number): Promise<void>
     saveAcl(path: string, acl: AclEntry[]): Promise<void>
   }
   runtime: {

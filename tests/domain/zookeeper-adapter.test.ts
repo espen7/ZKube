@@ -7,6 +7,8 @@ import {
 
 type FakeNodeClient = {
   once(event: string, cb: () => void): void
+  removeListener?(event: string, cb: () => void): void
+  emit?(event: string): void
   connect(): void
   close(): void
   addAuthInfo(scheme: string, auth: Buffer): void
@@ -70,16 +72,22 @@ type FactoryResult = {
 }
 
 function makeFactory(): FactoryResult {
-  let connectedHandler: (() => void) | undefined
+  const handlers = new Map<string, () => void>()
 
   const client: FakeNodeClient = {
     once(event, cb) {
-      if (event === 'connected') {
-        connectedHandler = cb
+      handlers.set(event, cb)
+    },
+    removeListener(event, cb) {
+      if (handlers.get(event) === cb) {
+        handlers.delete(event)
       }
     },
+    emit(event) {
+      handlers.get(event)?.()
+    },
     connect() {
-      connectedHandler?.()
+      handlers.get('connected')?.()
     },
     close() {},
     addAuthInfo() {},
@@ -260,6 +268,58 @@ describe('NodeZkClient', () => {
 
     await expect(client.deleteNode('/config', 3)).rejects.toMatchObject({
       code: 'BAD_VERSION',
+    })
+  })
+
+  it('rejects connect when the underlying client fails authentication', async () => {
+    const factory = makeFactory()
+    factory.client.connect = () => {
+      factory.client.emit?.('authenticationFailed')
+    }
+    const client = new NodeZkClient(
+      {
+        hosts: 'zk-1:2181',
+        authSecret: 'digest-user:bad-secret',
+      },
+      () => factory,
+    )
+
+    await expect(client.connect()).rejects.toMatchObject({
+      code: 'UNKNOWN_FAILURE',
+    })
+  })
+
+  it('rejects connect when the handshake times out', async () => {
+    const factory = makeFactory()
+    factory.client.connect = () => {}
+    const client = new NodeZkClient(
+      {
+        hosts: 'zk-1:2181',
+        sessionTimeoutMs: 10,
+      },
+      () => factory,
+    )
+
+    await expect(client.connect()).rejects.toMatchObject({
+      code: 'CONNECTION_TIMEOUT',
+    })
+  })
+
+  it('rejects connect when ZooKeeper only provides a read-only session', async () => {
+    const factory = makeFactory()
+    factory.client.connect = () => {
+      factory.client.emit?.('connectedReadOnly')
+    }
+    const client = new NodeZkClient(
+      {
+        hosts: 'zk-1:2181',
+      },
+      () => factory,
+    )
+
+    await expect(client.connect()).rejects.toMatchObject({
+      code: 'UNKNOWN_FAILURE',
+      message: 'Read-only ZooKeeper sessions are not supported',
     })
   })
 })

@@ -31,6 +31,7 @@ type NodeZkExceptionLike = {
 
 type NodeZkClientInstance = {
   once(event: string, cb: () => void): void
+  removeListener?(event: string, cb: () => void): void
   connect(): void
   close(): void
   addAuthInfo(scheme: string, auth: Buffer): void
@@ -132,8 +133,9 @@ export class NodeZkClient implements ZooKeeperClient {
 
   async connect(): Promise<void> {
     const module = this.factory()
+    const connectTimeoutMs = this.connection.sessionTimeoutMs ?? 30_000
     const client = module.createClient(buildConnectionString(this.connection), {
-      sessionTimeout: this.connection.sessionTimeoutMs ?? 30_000,
+      sessionTimeout: connectTimeoutMs,
     })
 
     if (this.connection.authSecret) {
@@ -142,8 +144,63 @@ export class NodeZkClient implements ZooKeeperClient {
 
     this.client = client
 
-    await new Promise<void>((resolve) => {
-      client.once('connected', resolve)
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        rejectConnect(
+          createAppError(
+            'CONNECTION_TIMEOUT',
+            `ZooKeeper connection timed out after ${connectTimeoutMs}ms`,
+          ),
+        )
+      }, connectTimeoutMs)
+      const cleanup = () => {
+        clearTimeout(timeout)
+        client.removeListener?.('connected', handleConnected)
+        client.removeListener?.('connectedReadOnly', handleConnectedReadOnly)
+        client.removeListener?.('authenticationFailed', handleAuthenticationFailed)
+        client.removeListener?.('expired', handleSessionExpired)
+      }
+      const rejectConnect = (error: Error & { code: AppErrorCode }) => {
+        cleanup()
+        client.close()
+        if (this.client === client) {
+          this.client = null
+        }
+        reject(error)
+      }
+      const handleConnected = () => {
+        cleanup()
+        resolve()
+      }
+      const handleConnectedReadOnly = () => {
+        rejectConnect(
+          createAppError(
+            'UNKNOWN_FAILURE',
+            'Read-only ZooKeeper sessions are not supported',
+          ),
+        )
+      }
+      const handleAuthenticationFailed = () => {
+        rejectConnect(
+          createAppError(
+            'UNKNOWN_FAILURE',
+            'ZooKeeper authentication failed',
+          ),
+        )
+      }
+      const handleSessionExpired = () => {
+        rejectConnect(
+          createAppError(
+            'CONNECTION_LOST',
+            'ZooKeeper session expired before the session was established',
+          ),
+        )
+      }
+
+      client.once('connected', handleConnected)
+      client.once('connectedReadOnly', handleConnectedReadOnly)
+      client.once('authenticationFailed', handleAuthenticationFailed)
+      client.once('expired', handleSessionExpired)
       client.connect()
     })
   }
@@ -283,8 +340,13 @@ export class NodeZkClient implements ZooKeeperClient {
     return this.client
   }
 
-  private toAppError(error: unknown): Error & { code: AppErrorCode } {
-    const appError = new Error(getErrorMessage(error), { cause: error }) as Error & {
+  private toAppError(
+    error: unknown,
+    fallbackMessage?: string,
+  ): Error & { code: AppErrorCode } {
+    const appError = new Error(getErrorMessage(error, fallbackMessage), {
+      cause: error,
+    }) as Error & {
       code: AppErrorCode
     }
     appError.code = mapZooKeeperError(error, this.factory().Exception)
@@ -323,10 +385,22 @@ function encodePermissions(
   }, 0)
 }
 
-function getErrorMessage(error: unknown): string {
+function getErrorMessage(error: unknown, fallbackMessage?: string): string {
   if (error instanceof Error) {
     return error.message
   }
 
-  return 'ZooKeeper operation failed'
+  return fallbackMessage ?? 'ZooKeeper operation failed'
+}
+
+function createAppError(
+  code: AppErrorCode,
+  message: string,
+  cause?: unknown,
+): Error & { code: AppErrorCode } {
+  const appError = new Error(message, { cause }) as Error & {
+    code: AppErrorCode
+  }
+  appError.code = code
+  return appError
 }

@@ -11,7 +11,7 @@ export type AclEntry = {
 
 export type NodeSnapshot = {
   path: string
-  data: Buffer
+  data: Uint8Array
   stat: NodeStat
   acl: AclEntry[]
 }
