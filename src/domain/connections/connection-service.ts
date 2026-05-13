@@ -11,6 +11,7 @@ type Repo = {
 type Secrets = {
   set(key: string, value: string): Promise<void>
   get(key: string): Promise<string | null>
+  delete(key: string): Promise<void>
 }
 
 export class ConnectionService {
@@ -23,6 +24,7 @@ export class ConnectionService {
     const now = new Date().toISOString()
     const all = await this.repo.list()
     const existing = all.find((item) => item.id === input.id)
+    const secretKey = `connection:${input.id}:auth`
     const next: StoredConnection = {
       id: input.id,
       name: input.name,
@@ -36,8 +38,12 @@ export class ConnectionService {
     const merged = [...all.filter((item) => item.id !== input.id), next]
     await this.repo.save(merged)
 
-    if (input.authSecret) {
-      await this.secrets.set(`connection:${input.id}:auth`, input.authSecret)
+    if (Object.prototype.hasOwnProperty.call(input, 'authSecret')) {
+      if (input.authSecret) {
+        await this.secrets.set(secretKey, input.authSecret)
+      } else {
+        await this.secrets.delete(secretKey)
+      }
     }
 
     return next

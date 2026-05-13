@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -22,6 +23,7 @@ export class SecretStore {
   ) {}
 
   async set(key: string, value: string): Promise<void> {
+    this.assertEncryptionAvailable()
     const values = await this.readAll()
     values[key] = this.protect(value)
     await this.writeAll(values)
@@ -38,18 +40,27 @@ export class SecretStore {
       return stored.value
     }
 
-    if (!safeStorage.isEncryptionAvailable()) {
-      return null
-    }
-
+    this.assertEncryptionAvailable()
     return safeStorage.decryptString(Buffer.from(stored.value, 'base64'))
   }
 
-  private protect(value: string): PersistedSecrets[string] {
-    if (!safeStorage.isEncryptionAvailable()) {
-      return { encrypted: false, value }
+  async delete(key: string): Promise<void> {
+    const values = await this.readAll()
+    if (!(key in values)) {
+      return
     }
 
+    delete values[key]
+
+    if (Object.keys(values).length === 0) {
+      await this.deleteFileIfPresent()
+      return
+    }
+
+    await this.writeAll(values)
+  }
+
+  private protect(value: string): PersistedSecrets[string] {
     return {
       encrypted: true,
       value: safeStorage.encryptString(value).toString('base64'),
@@ -60,13 +71,44 @@ export class SecretStore {
     try {
       const raw = await fs.readFile(this.filePath, 'utf8')
       return JSON.parse(raw) as PersistedSecrets
-    } catch {
-      return {}
+    } catch (error) {
+      if (this.isMissingFileError(error)) {
+        return {}
+      }
+
+      throw error
     }
   }
 
   private async writeAll(values: PersistedSecrets): Promise<void> {
     await fs.mkdir(path.dirname(this.filePath), { recursive: true })
-    await fs.writeFile(this.filePath, JSON.stringify(values, null, 2), 'utf8')
+    const tempPath = `${this.filePath}.${randomUUID()}.tmp`
+    await fs.writeFile(tempPath, JSON.stringify(values, null, 2), 'utf8')
+    await fs.rename(tempPath, this.filePath)
+  }
+
+  private async deleteFileIfPresent(): Promise<void> {
+    try {
+      await fs.rm(this.filePath)
+    } catch (error) {
+      if (!this.isMissingFileError(error)) {
+        throw error
+      }
+    }
+  }
+
+  private assertEncryptionAvailable(): void {
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error('SecretStore requires electron safeStorage encryption')
+    }
+  }
+
+  private isMissingFileError(error: unknown): error is NodeJS.ErrnoException {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'ENOENT'
+    )
   }
 }
