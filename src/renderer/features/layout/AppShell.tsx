@@ -1,5 +1,6 @@
 import { ConnectionDialog } from '../connections/ConnectionDialog'
 import { ConnectionSidebar } from '../connections/ConnectionSidebar'
+import { TreePanel } from '../tree/TreePanel'
 
 export function AppShell() {
   return (
@@ -12,7 +13,17 @@ export function AppShell() {
         <div className="muted">控制台骨架 / Task 6</div>
       </header>
 
-      <ConnectionSidebar />
+      <div
+        style={{
+          display: 'grid',
+          gap: '12px',
+          gridTemplateRows: 'minmax(260px, 1fr) minmax(260px, 1fr)',
+          minHeight: 0,
+        }}
+      >
+        <ConnectionSidebar />
+        <TreePanel />
+      </div>
 
       <main className="workspace">
         <section className="workspace-card" aria-label="工作台主区域">
