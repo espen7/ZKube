@@ -8,6 +8,7 @@ import { NodeZkClient } from '../../../src/infrastructure/zookeeper/node-zk-clie
 import { SecretStore } from '../../../src/infrastructure/security/secret-store'
 import { ConnectionRepository } from '../../../src/infrastructure/storage/connection-repository'
 import { channels } from '../../../src/shared/ipc'
+import type { RuntimeEvent } from '../../../src/shared/models/node'
 import type { StoredConnection } from '../../../src/shared/models/connection'
 
 export function registerHandlers(userDataPath: string): void {
@@ -28,11 +29,13 @@ export function registerHandlers(userDataPath: string): void {
     return new NodeZkClient(activeConnection)
   })
 
-  let stopRuntimeEvents = sessionManager.subscribe((event) => {
+  const sendRuntimeEvent = (event: RuntimeEvent) => {
     for (const window of BrowserWindow.getAllWindows()) {
       window.webContents.send(channels.runtimeEvent, event)
     }
-  })
+  }
+
+  let stopRuntimeEvents = sessionManager.subscribe(sendRuntimeEvent)
 
   ipcMain.handle(channels.connectionList, () => connectionService.list())
   ipcMain.handle(channels.connectionSave, (_event, draft) =>
@@ -43,25 +46,18 @@ export function registerHandlers(userDataPath: string): void {
     connectionService.importJson(payload.json),
   )
   ipcMain.handle(channels.connectionConnect, async (_event, payload) => {
+    const hadActiveConnection = activeConnection !== null
     const connection = await findConnection(connectionService, payload.connectionId)
     const authSecret = await connectionService.getSecret(payload.connectionId)
     const nextConnection = {
       ...connection,
       authSecret: authSecret ?? undefined,
     }
-    const nextSessionManager = new SessionManager(
-      () => new NodeZkClient(nextConnection),
-    )
-    const stopNextRuntimeEvents = nextSessionManager.subscribe((event) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.webContents.send(channels.runtimeEvent, event)
-      }
-    })
+    const nextSessionManager = new SessionManager(() => new NodeZkClient(nextConnection))
 
     try {
       await nextSessionManager.connect(payload.connectionId)
     } catch (error) {
-      stopNextRuntimeEvents()
       await nextSessionManager.disconnect()
       throw error
     }
@@ -69,11 +65,23 @@ export function registerHandlers(userDataPath: string): void {
     const previousSessionManager = sessionManager
     const stopPreviousRuntimeEvents = stopRuntimeEvents
 
-    activeConnection = nextConnection
-    sessionManager = nextSessionManager
-    stopRuntimeEvents = stopNextRuntimeEvents
+    if (hadActiveConnection) {
+      sendRuntimeEvent({
+        type: 'connectionStateChanged',
+        state: 'reconnecting',
+      })
+    }
+
     stopPreviousRuntimeEvents()
     await previousSessionManager.disconnect()
+
+    activeConnection = nextConnection
+    sessionManager = nextSessionManager
+    stopRuntimeEvents = nextSessionManager.subscribe(sendRuntimeEvent)
+    sendRuntimeEvent({
+      type: 'connectionStateChanged',
+      state: 'connected',
+    })
   })
 
   ipcMain.handle(channels.zookeeperDisconnect, async () => {
