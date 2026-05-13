@@ -3,4 +3,6 @@ worktrees/
 .idea/
 node_modules/
 dist/
+dist-electron/
 test-results/
+.tmp/
