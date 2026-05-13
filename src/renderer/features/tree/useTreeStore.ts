@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
+import type { RuntimeEvent } from '../../../shared/models/node'
+
 type TreeState = {
   childrenByPath: Record<string, string[]>
   expandedPaths: string[]
@@ -21,6 +23,9 @@ const initialState: TreeState = {
 const listeners = new Set<() => void>()
 
 let state: TreeState = initialState
+let latestSearchRequestId = 0
+let nextLoadRequestId = 0
+const loadRequestIds = new Map<string, number>()
 
 function emitChange() {
   for (const listener of listeners) {
@@ -40,6 +45,11 @@ function subscribe(listener: () => void) {
 
 function getSnapshot() {
   return state
+}
+
+function cancelPendingSearches() {
+  latestSearchRequestId += 1
+  return latestSearchRequestId
 }
 
 function getErrorMessage(error: unknown): string {
@@ -62,15 +72,122 @@ function setLoading(path: string, loading: boolean) {
   setState({ loadingPaths: nextLoadingPaths })
 }
 
+function joinChildPath(parentPath: string, childPath: string) {
+  if (!childPath || childPath === '/') {
+    return '/'
+  }
+
+  if (childPath.startsWith('/')) {
+    return childPath
+  }
+
+  return parentPath === '/' ? `/${childPath}` : `${parentPath}/${childPath}`
+}
+
+function isSameOrDescendantPath(candidatePath: string, targetPath: string) {
+  if (targetPath === '/') {
+    return candidatePath.startsWith('/')
+  }
+
+  return (
+    candidatePath === targetPath ||
+    candidatePath.startsWith(`${targetPath}/`)
+  )
+}
+
+function cancelLoadsForPath(targetPath: string) {
+  for (const path of Array.from(loadRequestIds.keys())) {
+    if (isSameOrDescendantPath(path, targetPath)) {
+      loadRequestIds.delete(path)
+    }
+  }
+}
+
+function isCurrentLoad(path: string, requestId: number) {
+  return loadRequestIds.get(path) === requestId
+}
+
+function beginLoad(path: string) {
+  const requestId = nextLoadRequestId + 1
+  nextLoadRequestId = requestId
+  loadRequestIds.set(path, requestId)
+  setLoading(path, true)
+  return requestId
+}
+
+function completeLoad(path: string, requestId: number) {
+  if (loadRequestIds.get(path) === requestId) {
+    loadRequestIds.delete(path)
+  }
+}
+
+function invalidateBranch(targetPath: string, options?: { removePath?: boolean }) {
+  const removePath = options?.removePath ?? false
+  cancelLoadsForPath(targetPath)
+  const nextChildrenByPath = Object.fromEntries(
+    Object.entries(state.childrenByPath)
+      .filter(([path]) => {
+        if (path === targetPath) {
+          return !removePath
+        }
+
+        return !isSameOrDescendantPath(path, targetPath)
+      })
+      .map(([path, children]) => [
+        path,
+        removePath
+          ? children.filter(
+              (childPath) => !isSameOrDescendantPath(childPath, targetPath),
+            )
+          : children,
+      ]),
+  )
+
+  const nextExpandedPaths = state.expandedPaths.filter((path) => {
+    if (path === targetPath) {
+      return !removePath
+    }
+
+    return !isSameOrDescendantPath(path, targetPath)
+  })
+
+  const nextLoadingPaths = state.loadingPaths.filter(
+    (path) => !isSameOrDescendantPath(path, targetPath),
+  )
+
+  const nextSearchResults = state.searchResults.filter((path) => {
+    if (path === targetPath) {
+      return !removePath
+    }
+
+    return !isSameOrDescendantPath(path, targetPath)
+  })
+
+  setState({
+    childrenByPath: nextChildrenByPath,
+    expandedPaths: nextExpandedPaths,
+    loadingPaths: nextLoadingPaths,
+    searchResults: nextSearchResults,
+  })
+}
+
 async function loadChildren(path: string) {
   if (!window.zkube?.zookeeper.loadChildren || isLoading(path)) {
     return
   }
 
-  setLoading(path, true)
+  const requestId = beginLoad(path)
 
   try {
-    const children = await window.zkube.zookeeper.loadChildren(path)
+    const children = (await window.zkube.zookeeper.loadChildren(path)).map(
+      (childPath) => joinChildPath(path, childPath),
+    )
+
+    if (!isCurrentLoad(path, requestId)) {
+      return
+    }
+
+    completeLoad(path, requestId)
     setState({
       childrenByPath: {
         ...state.childrenByPath,
@@ -80,6 +197,11 @@ async function loadChildren(path: string) {
       loadingPaths: state.loadingPaths.filter((entry) => entry !== path),
     })
   } catch (error) {
+    if (!isCurrentLoad(path, requestId)) {
+      return
+    }
+
+    completeLoad(path, requestId)
     setState({
       feedback: getErrorMessage(error),
       loadingPaths: state.loadingPaths.filter((entry) => entry !== path),
@@ -111,13 +233,19 @@ async function toggleNode(path: string) {
 }
 
 function setQuery(query: string) {
-  setState({ query, searchResults: query ? state.searchResults : [] })
+  cancelPendingSearches()
+
+  setState({
+    query,
+    searchResults: state.query === query ? state.searchResults : [],
+  })
 }
 
 async function runDeepSearch() {
   const query = state.query.trim()
 
   if (!query || !window.zkube?.zookeeper.search) {
+    cancelPendingSearches()
     setState({
       searchResults: [],
       feedback: query ? null : '请输入节点关键词。',
@@ -125,10 +253,21 @@ async function runDeepSearch() {
     return
   }
 
+  const requestId = cancelPendingSearches()
+
   try {
     const searchResults = await window.zkube.zookeeper.search(query)
+
+    if (requestId !== latestSearchRequestId || state.query.trim() !== query) {
+      return
+    }
+
     setState({ searchResults, feedback: null })
   } catch (error) {
+    if (requestId !== latestSearchRequestId || state.query.trim() !== query) {
+      return
+    }
+
     setState({
       searchResults: [],
       feedback: getErrorMessage(error),
@@ -171,18 +310,9 @@ async function deleteDemoNode() {
 
   try {
     await window.zkube.zookeeper.delete('/demo-node')
-
-    const nextChildrenByPath = Object.fromEntries(
-      Object.entries(state.childrenByPath).map(([path, children]) => [
-        path,
-        children.filter((entry) => entry !== '/demo-node'),
-      ]),
-    )
+    invalidateBranch('/demo-node', { removePath: true })
 
     setState({
-      childrenByPath: nextChildrenByPath,
-      expandedPaths: state.expandedPaths.filter((entry) => entry !== '/demo-node'),
-      searchResults: state.searchResults.filter((entry) => entry !== '/demo-node'),
       feedback: '已删除演示节点 /demo-node',
     })
   } catch (error) {
@@ -191,8 +321,42 @@ async function deleteDemoNode() {
 }
 
 export function resetTreeStore() {
+  cancelPendingSearches()
+  loadRequestIds.clear()
   state = initialState
   emitChange()
+}
+
+async function refreshBranch(path: string) {
+  const shouldReload =
+    path === '/' ||
+    path in state.childrenByPath ||
+    state.expandedPaths.includes(path) ||
+    state.loadingPaths.includes(path)
+
+  invalidateBranch(path)
+
+  if (shouldReload) {
+    await loadChildren(path)
+  }
+}
+
+async function handleRuntimeEvent(event: RuntimeEvent) {
+  switch (event.type) {
+    case 'connectionStateChanged':
+      resetTreeStore()
+      return
+    case 'nodeChildrenChanged':
+      cancelPendingSearches()
+      await refreshBranch(event.path)
+      return
+    case 'nodeDeleted':
+      cancelPendingSearches()
+      invalidateBranch(event.path, { removePath: true })
+      return
+    case 'nodeDataChanged':
+      return
+  }
 }
 
 export function useTreeStore() {
@@ -206,5 +370,6 @@ export function useTreeStore() {
     runDeepSearch,
     createDemoNode,
     deleteDemoNode,
+    handleRuntimeEvent,
   }
 }

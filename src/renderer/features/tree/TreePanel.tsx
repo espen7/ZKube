@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+
 import { TreeSearchBar } from './TreeSearchBar'
 import { useTreeStore } from './useTreeStore'
 
@@ -90,12 +92,23 @@ export function TreePanel() {
     runDeepSearch,
     createDemoNode,
     deleteDemoNode,
+    handleRuntimeEvent,
   } = useTreeStore()
 
   const rootChildren = childrenByPath['/'] ?? []
   const rootVisible = !query
     ? rootChildren
     : rootChildren.filter((path) => shouldRenderPath(path, query, childrenByPath))
+
+  useEffect(() => {
+    if (!window.zkube?.runtime.subscribe) {
+      return undefined
+    }
+
+    return window.zkube.runtime.subscribe((event) => {
+      void handleRuntimeEvent(event)
+    })
+  }, [handleRuntimeEvent])
 
   return (
     <aside className="panel" aria-label="节点树面板">
