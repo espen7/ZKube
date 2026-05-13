@@ -1,3 +1,4 @@
+import { builtinModules } from 'node:module'
 import { fileURLToPath } from 'node:url'
 
 import react from '@vitejs/plugin-react'
@@ -8,6 +9,17 @@ const test = {
   globals: true,
   setupFiles: 'src/renderer/test/setup.ts',
 } as const
+
+const nodeBuiltins = Array.from(
+  new Set([
+    ...builtinModules,
+    ...builtinModules.map((moduleName) =>
+      moduleName.startsWith('node:') ? moduleName : `node:${moduleName}`,
+    ),
+  ]),
+)
+
+const electronMainExternals = ['electron', 'node-zookeeper-client', ...nodeBuiltins]
 
 export default defineConfig(({ mode }) => {
   if (mode === 'electron-main') {
@@ -21,7 +33,7 @@ export default defineConfig(({ mode }) => {
         },
         outDir: 'dist-electron/main',
         rollupOptions: {
-          external: ['electron', 'node:path', 'node-zookeeper-client'],
+          external: electronMainExternals,
         },
       },
       test,
