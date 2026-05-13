@@ -1,0 +1,24 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    'Segoe UI',
+    'PingFang SC',
+    'Microsoft YaHei',
+    sans-serif;
+  --bg-app: #07111f;
+  --bg-panel: rgba(10, 23, 37, 0.94);
+  --bg-panel-soft: rgba(17, 35, 54, 0.92);
+  --bg-panel-strong: rgba(7, 17, 31, 0.98);
+  --bg-accent: rgba(36, 200, 165, 0.14);
+  --text-main: #edf4fb;
+  --text-muted: #90a6bd;
+  --text-soft: #6d8197;
+  --accent: #24c8a5;
+  --accent-strong: #33e1bb;
+  --border: rgba(143, 168, 192, 0.18);
+  --border-strong: rgba(143, 168, 192, 0.32);
+  --shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+  --radius-lg: 22px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
+}
