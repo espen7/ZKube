@@ -1,13 +1,12 @@
+import type { RuntimeEvent } from './models/node'
+
 export const channels = {
   appGetVersion: 'app:getVersion',
   appPing: 'app:ping',
   runtimeEvent: 'runtime:event',
 } as const
 
-export type RuntimeEventPayload = {
-  type: 'app:ready'
-  version: string
-}
+export type RuntimeEventPayload = RuntimeEvent
 
 export type InvokeRequestMap = {
   [channels.appGetVersion]: undefined

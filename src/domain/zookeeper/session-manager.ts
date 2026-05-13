@@ -53,6 +53,7 @@ export class SessionManager {
   async delete(path: string, version?: number): Promise<void> {
     const parent = parentPath(path)
     await this.requireClient().deleteNode(path, version)
+    this.invalidateDeletedPath(path)
     this.childrenCache.delete(parent)
     this.emit({ type: 'nodeDeleted', path })
     this.emit({ type: 'nodeChildrenChanged', path: parent })
@@ -68,9 +69,11 @@ export class SessionManager {
     this.emit({ type: 'nodeDataChanged', path })
   }
 
-  subscribe(cb: (event: RuntimeEvent) => void): () => boolean {
+  subscribe(cb: (event: RuntimeEvent) => void): () => void {
     this.listeners.add(cb)
-    return () => this.listeners.delete(cb)
+    return () => {
+      this.listeners.delete(cb)
+    }
   }
 
   emit(event: RuntimeEvent): void {
@@ -79,20 +82,14 @@ export class SessionManager {
     }
   }
 
-  async openNode(path: string): Promise<NodeSnapshot> {
-    return this.open(path)
-  }
+  private invalidateDeletedPath(path: string): void {
+    const subtreePrefix = path === '/' ? '/' : `${path}/`
 
-  async createNode(path: string, data: Buffer): Promise<void> {
-    await this.create(path, data)
-  }
-
-  async deleteNode(path: string, version?: number): Promise<void> {
-    await this.delete(path, version)
-  }
-
-  async updateNode(path: string, data: Buffer, version?: number): Promise<void> {
-    await this.update(path, data, version)
+    for (const cachedPath of this.childrenCache.keys()) {
+      if (cachedPath === path || cachedPath.startsWith(subtreePrefix)) {
+        this.childrenCache.delete(cachedPath)
+      }
+    }
   }
 
   private requireClient(): ZooKeeperClient {
