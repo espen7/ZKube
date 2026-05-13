@@ -1,11 +1,22 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
-import { createDesktopApi } from '../../src/shared/ipc'
+import {
+  createDesktopApi,
+  type EventChannel,
+  type EventPayloadMap,
+  type Transport,
+} from '../../src/shared/ipc'
 
-const api = createDesktopApi({
+const transport: Transport = {
   invoke: (channel, payload) => ipcRenderer.invoke(channel, payload),
-  on: <T>(channel: string, cb: (payload: T) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, payload: T) => {
+  on: <TChannel extends EventChannel>(
+    channel: TChannel,
+    cb: (payload: EventPayloadMap[TChannel]) => void,
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      payload: EventPayloadMap[TChannel],
+    ) => {
       cb(payload)
     }
 
@@ -13,6 +24,8 @@ const api = createDesktopApi({
 
     return () => ipcRenderer.removeListener(channel, listener)
   },
-})
+}
+
+const api = createDesktopApi(transport)
 
 contextBridge.exposeInMainWorld('zkube', api)

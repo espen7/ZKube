@@ -1,8 +1,8 @@
-import type { createDesktopApi } from './ipc'
+import type { DesktopApi } from './ipc'
 
 declare global {
   interface Window {
-    zkube: ReturnType<typeof createDesktopApi>
+    zkube: DesktopApi
   }
 }
 

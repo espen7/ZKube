@@ -1,6 +1,10 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 
-import { createDesktopApi } from '../../src/shared/ipc'
+import {
+  channels,
+  createDesktopApi,
+  type RuntimeEventPayload,
+} from '../../src/shared/ipc'
 
 describe('desktop bridge', () => {
   it('invokes typed channels through the transport', async () => {
@@ -12,5 +16,29 @@ describe('desktop bridge', () => {
 
     expect(invoke).toHaveBeenCalledWith('app:getVersion', undefined)
     expect(typeof api.runtime.subscribe).toBe('function')
+  })
+
+  it('subscribes to the runtime event channel and returns the unsubscribe fn', () => {
+    const invoke = vi.fn()
+    const unsubscribe = vi.fn()
+    const on = vi.fn().mockReturnValue(unsubscribe)
+    const api = createDesktopApi({ invoke, on })
+    const listener = vi.fn<(payload: RuntimeEventPayload) => void>()
+
+    const stop = api.runtime.subscribe(listener)
+
+    expect(on).toHaveBeenCalledWith(channels.runtimeEvent, listener)
+    expect(stop).toBe(unsubscribe)
+  })
+
+  it('exposes a typed desktop api contract', () => {
+    const api = createDesktopApi({
+      invoke: vi.fn(),
+      on: vi.fn(),
+    })
+
+    expectTypeOf(api.runtime.subscribe).parameter(0).toEqualTypeOf<
+      (payload: RuntimeEventPayload) => void
+    >()
   })
 })
