@@ -4,5 +4,6 @@ worktrees/
 node_modules/
 dist/
 dist-electron/
+release/
 test-results/
 .tmp/
