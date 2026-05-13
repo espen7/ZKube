@@ -1,19 +1,28 @@
 import { useSyncExternalStore } from 'react'
 
-import type { StoredConnection } from '../../../shared/models/connection'
+import type {
+  ConnectionDraft,
+  StoredConnection,
+} from '../../../shared/models/connection'
+
+type DialogMode = 'create' | 'import' | null
 
 type ConnectionsState = {
   items: StoredConnection[]
-  dialogOpen: boolean
+  dialogMode: DialogMode
+  dialogError: string | null
   feedback: string | null
   exportPreview: string | null
+  submitting: boolean
 }
 
 const initialState: ConnectionsState = {
   items: [],
-  dialogOpen: false,
+  dialogMode: null,
+  dialogError: null,
   feedback: null,
   exportPreview: null,
+  submitting: false,
 }
 
 const listeners = new Set<() => void>()
@@ -45,7 +54,26 @@ function getErrorMessage(error: unknown): string {
     return error.message
   }
 
-  return '操作失败，请稍后重试。'
+  return 'Operation failed. Please try again.'
+}
+
+function createConnectionId(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  const base = slug || 'connection'
+  return `${base}-${Date.now().toString(36)}`
+}
+
+function upsertConnection(
+  items: StoredConnection[],
+  next: StoredConnection,
+): StoredConnection[] {
+  const withoutCurrent = items.filter((item) => item.id !== next.id)
+  return [...withoutCurrent, next]
 }
 
 async function load() {
@@ -87,7 +115,7 @@ async function exportAll() {
     const content = await window.zkube.connections.exportAll()
     setState({
       exportPreview: content,
-      feedback: '导出内容已就绪',
+      feedback: 'Connections exported.',
     })
   } catch (error) {
     setState({
@@ -97,12 +125,112 @@ async function exportAll() {
   }
 }
 
-function openDialog() {
-  setState({ dialogOpen: true })
+function openCreateDialog() {
+  setState({
+    dialogMode: 'create',
+    dialogError: null,
+  })
+}
+
+function openImportDialog() {
+  setState({
+    dialogMode: 'import',
+    dialogError: null,
+  })
 }
 
 function closeDialog() {
-  setState({ dialogOpen: false })
+  setState({
+    dialogMode: null,
+    dialogError: null,
+    submitting: false,
+  })
+}
+
+async function saveConnection(input: {
+  name: string
+  hosts: string
+  chroot?: string
+}) {
+  if (!window.zkube?.connections.save) {
+    return
+  }
+
+  const draft: ConnectionDraft = {
+    id: createConnectionId(input.name),
+    name: input.name.trim(),
+    hosts: input.hosts.trim(),
+    chroot: input.chroot?.trim() || undefined,
+  }
+
+  if (!draft.name || !draft.hosts) {
+    const message = 'Name and hosts are required.'
+    setState({ dialogError: message, feedback: message })
+    return
+  }
+
+  setState({
+    dialogError: null,
+    feedback: null,
+    submitting: true,
+  })
+
+  try {
+    const saved = await window.zkube.connections.save(draft)
+    setState({
+      items: upsertConnection(state.items, saved),
+      dialogMode: null,
+      dialogError: null,
+      feedback: 'Connection saved.',
+      exportPreview: null,
+      submitting: false,
+    })
+  } catch (error) {
+    const message = getErrorMessage(error)
+    setState({
+      dialogError: message,
+      feedback: message,
+      submitting: false,
+    })
+  }
+}
+
+async function importConnections(rawJson: string) {
+  if (!window.zkube?.connections.importJson) {
+    return
+  }
+
+  const json = rawJson.trim()
+  if (!json) {
+    const message = 'Connection JSON is required.'
+    setState({ dialogError: message, feedback: message })
+    return
+  }
+
+  setState({
+    dialogError: null,
+    feedback: null,
+    submitting: true,
+  })
+
+  try {
+    const items = await window.zkube.connections.importJson(json)
+    setState({
+      items,
+      dialogMode: null,
+      dialogError: null,
+      feedback: 'Connections imported.',
+      exportPreview: null,
+      submitting: false,
+    })
+  } catch (error) {
+    const message = getErrorMessage(error)
+    setState({
+      dialogError: message,
+      feedback: message,
+      submitting: false,
+    })
+  }
 }
 
 export function resetConnectionsStore() {
@@ -115,10 +243,14 @@ export function useConnectionsStore() {
 
   return {
     ...snapshot,
+    dialogOpen: snapshot.dialogMode !== null,
     load,
     connect,
     exportAll,
-    openDialog,
+    openCreateDialog,
+    openImportDialog,
     closeDialog,
+    saveConnection,
+    importConnections,
   }
 }

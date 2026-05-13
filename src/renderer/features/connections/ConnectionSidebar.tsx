@@ -8,7 +8,8 @@ export function ConnectionSidebar() {
     load,
     connect,
     exportAll,
-    openDialog,
+    openCreateDialog,
+    openImportDialog,
     feedback,
     exportPreview,
   } = useConnectionsStore()
@@ -25,10 +26,18 @@ export function ConnectionSidebar() {
           <h2 className="panel__title">连接工作区</h2>
         </div>
         <div className="panel__actions">
-          <button className="button-primary" type="button" onClick={openDialog}>
+          <button
+            aria-label="create connection"
+            className="button-primary"
+            type="button"
+            onClick={openCreateDialog}
+          >
             新建连接
           </button>
-          <button type="button" onClick={() => void exportAll()}>
+          <button aria-label="import connections" type="button" onClick={openImportDialog}>
+            导入 JSON
+          </button>
+          <button aria-label="export connections" type="button" onClick={() => void exportAll()}>
             导出
           </button>
         </div>
@@ -36,7 +45,7 @@ export function ConnectionSidebar() {
       <div className="panel__body">
         <div className="muted">已保存连接</div>
         {feedback ? (
-          <div className="sidebar-feedback" role="status">
+          <div aria-live="polite" className="sidebar-feedback" role="status">
             {feedback}
           </div>
         ) : null}
@@ -59,6 +68,7 @@ export function ConnectionSidebar() {
                 <div className="connection-card__footer">
                   <span className="muted">{`更新于 ${item.updatedAt.slice(0, 10)}`}</span>
                   <button
+                    aria-label={`connect connection ${item.name}`}
                     className="button-primary"
                     type="button"
                     onClick={() => void connect(item.id)}
