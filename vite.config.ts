@@ -16,12 +16,12 @@ export default defineConfig(({ mode }) => {
         emptyOutDir: true,
         lib: {
           entry: fileURLToPath(new URL('./electron/main/index.ts', import.meta.url)),
-          formats: ['es'],
-          fileName: () => 'index.js',
+          formats: ['cjs'],
+          fileName: () => 'index.cjs',
         },
         outDir: 'dist-electron/main',
         rollupOptions: {
-          external: ['electron', 'node:path', 'node:url'],
+          external: ['electron', 'node:path', 'node-zookeeper-client'],
         },
       },
       test,
@@ -36,8 +36,8 @@ export default defineConfig(({ mode }) => {
           entry: fileURLToPath(
             new URL('./electron/preload/index.ts', import.meta.url),
           ),
-          formats: ['es'],
-          fileName: () => 'index.js',
+          formats: ['cjs'],
+          fileName: () => 'index.cjs',
         },
         outDir: 'dist-electron/preload',
         rollupOptions: {

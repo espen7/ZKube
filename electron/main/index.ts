@@ -1,5 +1,4 @@
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 
 import { app, ipcMain } from 'electron'
 
@@ -9,8 +8,7 @@ import { createMainWindow } from './window'
 
 async function bootstrap() {
   const win = createMainWindow()
-  const currentDir = path.dirname(fileURLToPath(import.meta.url))
-  const rendererHtmlPath = path.join(currentDir, '..', '..', 'dist', 'index.html')
+  const rendererHtmlPath = path.join(app.getAppPath(), 'dist', 'index.html')
 
   ipcMain.handle(channels.appGetVersion, () => ({ version: app.getVersion() }))
   ipcMain.handle(channels.appPing, () => ({ ok: true as const }))

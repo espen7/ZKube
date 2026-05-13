@@ -1,4 +1,4 @@
-import { createRequire } from 'node:module'
+import nodeZkModule from 'node-zookeeper-client'
 
 import type { ZooKeeperClient } from '../../domain/zookeeper/client'
 import type { AppErrorCode } from '../../shared/errors'
@@ -91,10 +91,8 @@ const PERMISSIONS = [
   ['admin', 'ADMIN'],
 ] as const
 
-const require = createRequire(import.meta.url)
-
 function loadNodeZkModule(): NodeZkModule {
-  return require('node-zookeeper-client') as NodeZkModule
+  return nodeZkModule as NodeZkModule
 }
 
 export function mapZooKeeperError(

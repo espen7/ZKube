@@ -1,11 +1,14 @@
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 
-import { BrowserWindow } from 'electron'
+import { app, BrowserWindow } from 'electron'
 
 export function createMainWindow() {
-  const currentDir = path.dirname(fileURLToPath(import.meta.url))
-  const preloadPath = path.join(currentDir, '..', 'preload', 'index.js')
+  const preloadPath = path.join(
+    app.getAppPath(),
+    'dist-electron',
+    'preload',
+    'index.cjs',
+  )
 
   return new BrowserWindow({
     width: 1600,
