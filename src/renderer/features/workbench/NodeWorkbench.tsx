@@ -35,6 +35,22 @@ export function NodeWorkbench() {
     void loadTab(activeTab.path)
   }, [activeTab?.loadState, activeTab?.path, loadTab])
 
+  useEffect(() => {
+    if (!window.zkube?.runtime.subscribe) {
+      return undefined
+    }
+
+    return window.zkube.runtime.subscribe((event) => {
+      if (
+        event.type === 'connectionStateChanged' &&
+        event.state === 'connected' &&
+        activeTab?.loadState === 'error'
+      ) {
+        void loadTab(activeTab.path)
+      }
+    })
+  }, [activeTab?.loadState, activeTab?.path, loadTab])
+
   if (!activeTab) {
     return null
   }

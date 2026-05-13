@@ -25,7 +25,7 @@ vi.mock('@monaco-editor/react', () => ({
 
 import App from '../../src/renderer/App'
 import { formatJson, formatXml } from '../../src/renderer/features/workbench/formatters'
-import type { NodeSnapshot } from '../../src/shared/models/node'
+import type { NodeSnapshot, RuntimeEvent } from '../../src/shared/models/node'
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -60,6 +60,7 @@ describe('node workbench', () => {
       (path: string, data: Uint8Array, version?: number) => Promise<void>
     >
   >
+  let runtimeListener: ((event: RuntimeEvent) => void) | undefined
 
   beforeEach(() => {
     monacoEditorSpy.mockClear()
@@ -99,7 +100,10 @@ describe('node workbench', () => {
         saveAcl: vi.fn(),
       },
       runtime: {
-        subscribe: vi.fn(() => vi.fn()),
+        subscribe: vi.fn((cb: (event: RuntimeEvent) => void) => {
+          runtimeListener = cb
+          return vi.fn()
+        }),
       },
     }
   })
@@ -148,6 +152,29 @@ describe('node workbench', () => {
     })
 
     expect(openMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('recovers node loading after a connected runtime event', async () => {
+    openMock.mockRejectedValueOnce(new Error('boom'))
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('boom')
+    expect(openMock).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      runtimeListener?.({
+        type: 'connectionStateChanged',
+        state: 'connected',
+      })
+    })
+
+    expect(await screen.findByTestId('monaco-editor')).toHaveValue(
+      '{"service":"zk"}',
+    )
+    expect(openMock).toHaveBeenCalledTimes(2)
   })
 
   it('keeps the monaco editor read-only while the initial load is pending', async () => {

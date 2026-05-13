@@ -6,13 +6,13 @@ import { resetConnectionsStore } from '../../src/renderer/features/connections/u
 
 describe('Tree panel', () => {
   const originalZkube = window.zkube
-  let runtimeListener:
-    | ((event: {
-        type: string
-        path?: string
-        state?: 'connected' | 'disconnected' | 'reconnecting'
-      }) => void)
-    | undefined
+  const runtimeListeners = new Set<
+    (event: {
+      type: string
+      path?: string
+      state?: 'connected' | 'disconnected' | 'reconnecting'
+    }) => void
+  >()
   let loadChildrenMock: ReturnType<
     typeof vi.fn<(path: string) => Promise<string[]>>
   >
@@ -63,7 +63,15 @@ describe('Tree panel', () => {
       zookeeper: {
         disconnect: vi.fn(),
         loadChildren: loadChildrenMock,
-        open: vi.fn(),
+        open: vi.fn().mockResolvedValue({
+          path: '/config/service',
+          data: new TextEncoder().encode('{"service":"zk"}'),
+          stat: {
+            version: 1,
+            numChildren: 0,
+          },
+          acl: [],
+        }),
         search: searchMock,
         create: createMock,
         delete: deleteMock,
@@ -72,8 +80,10 @@ describe('Tree panel', () => {
       },
       runtime: {
         subscribe: vi.fn((cb) => {
-          runtimeListener = cb
-          return vi.fn()
+          runtimeListeners.add(cb)
+          return vi.fn(() => {
+            runtimeListeners.delete(cb)
+          })
         }),
       },
     }
@@ -91,8 +101,19 @@ describe('Tree panel', () => {
       // Tree store is introduced by this task.
     }
 
+    runtimeListeners.clear()
     window.zkube = originalZkube
   })
+
+  function emitRuntimeEvent(event: {
+    type: string
+    path?: string
+    state?: 'connected' | 'disconnected' | 'reconnecting'
+  }) {
+    for (const listener of runtimeListeners) {
+      listener(event)
+    }
+  }
 
   it('lazy loads root nodes and filters loaded entries locally', async () => {
     await act(async () => {
@@ -256,7 +277,7 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      runtimeListener?.({
+      emitRuntimeEvent({
         type: 'nodeDeleted',
         path: '/services/api/live',
       })
@@ -281,7 +302,7 @@ describe('Tree panel', () => {
     expect(await screen.findByText('/configs')).toBeInTheDocument()
 
     await act(async () => {
-      runtimeListener?.({
+      emitRuntimeEvent({
         type: 'connectionStateChanged',
         state: 'connected',
       })
@@ -317,7 +338,7 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      runtimeListener?.({
+      emitRuntimeEvent({
         type: 'nodeChildrenChanged',
         path: '/',
       })
@@ -365,7 +386,7 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      runtimeListener?.({
+      emitRuntimeEvent({
         type: 'nodeChildrenChanged',
         path: '/configs',
       })
@@ -403,7 +424,7 @@ describe('Tree panel', () => {
     expect(await screen.findByText('/services/api')).toBeInTheDocument()
 
     await act(async () => {
-      runtimeListener?.({
+      emitRuntimeEvent({
         type: 'nodeDeleted',
         path: '/services',
       })
@@ -422,7 +443,7 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      runtimeListener?.({
+      emitRuntimeEvent({
         type: 'nodeChildrenChanged',
         path: '/',
       })
@@ -493,7 +514,7 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      runtimeListener?.({
+      emitRuntimeEvent({
         type: 'nodeChildrenChanged',
         path: '/services',
       })
