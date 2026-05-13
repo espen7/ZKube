@@ -60,7 +60,12 @@ describe('node workbench', () => {
       (path: string, data: Uint8Array, version?: number) => Promise<void>
     >
   >
-  let runtimeListener: ((event: RuntimeEvent) => void) | undefined
+  const runtimeListeners = new Set<(event: RuntimeEvent) => void>()
+  let saveAclMock: ReturnType<
+    typeof vi.fn<
+      (path: string, acl: NodeSnapshot['acl']) => Promise<void>
+    >
+  >
 
   beforeEach(() => {
     monacoEditorSpy.mockClear()
@@ -75,6 +80,9 @@ describe('node workbench', () => {
     })
     updateMock = vi
       .fn<(path: string, data: Uint8Array, version?: number) => Promise<void>>()
+      .mockResolvedValue(undefined)
+    saveAclMock = vi
+      .fn<(path: string, acl: NodeSnapshot['acl']) => Promise<void>>()
       .mockResolvedValue(undefined)
 
     window.zkube = {
@@ -97,12 +105,14 @@ describe('node workbench', () => {
         create: vi.fn(),
         delete: vi.fn(),
         update: updateMock,
-        saveAcl: vi.fn(),
+        saveAcl: saveAclMock,
       },
       runtime: {
         subscribe: vi.fn((cb: (event: RuntimeEvent) => void) => {
-          runtimeListener = cb
-          return vi.fn()
+          runtimeListeners.add(cb)
+          return vi.fn(() => {
+            runtimeListeners.delete(cb)
+          })
         }),
       },
     }
@@ -111,8 +121,15 @@ describe('node workbench', () => {
   afterEach(async () => {
     const workbenchModule = await import('../../src/renderer/stores/useWorkbenchStore')
     workbenchModule.resetWorkbenchStore()
+    runtimeListeners.clear()
     window.zkube = originalZkube
   })
+
+  function emitRuntimeEvent(event: RuntimeEvent) {
+    for (const listener of runtimeListeners) {
+      listener(event)
+    }
+  }
 
   it('mounts the monaco editor and switches between data/meta/acl panes', async () => {
     await act(async () => {
@@ -131,11 +148,50 @@ describe('node workbench', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'ACL' }))
     expect(
-      screen.getByText('ACL editor will arrive in Task 9.'),
+      screen.getByRole('checkbox', { name: 'read' }),
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Data' }))
     expect(screen.getByTestId('monaco-editor')).toHaveValue('{"service":"zk"}')
+  })
+
+  it('saves the world:anyone acl entry from the acl pane', async () => {
+    openMock.mockResolvedValueOnce({
+      path: '/config/service',
+      data: new TextEncoder().encode('{"service":"zk"}'),
+      stat: {
+        version: 7,
+        numChildren: 2,
+      },
+      acl: [
+        {
+          scheme: 'world',
+          id: 'anyone',
+          permissions: ['read'],
+        },
+      ],
+    })
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'ACL' }))
+
+    const writeCheckbox = await screen.findByRole('checkbox', { name: 'write' })
+    fireEvent.click(writeCheckbox)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save ACL' }))
+    })
+
+    expect(saveAclMock).toHaveBeenCalledWith('/config/service', [
+      {
+        scheme: 'world',
+        id: 'anyone',
+        permissions: ['read', 'write'],
+      },
+    ])
   })
 
   it('stops retrying after the initial open failure', async () => {
@@ -165,7 +221,7 @@ describe('node workbench', () => {
     expect(openMock).toHaveBeenCalledTimes(1)
 
     await act(async () => {
-      runtimeListener?.({
+      emitRuntimeEvent({
         type: 'connectionStateChanged',
         state: 'connected',
       })

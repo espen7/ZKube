@@ -1,9 +1,14 @@
 import { ConnectionDialog } from '../connections/ConnectionDialog'
 import { ConnectionSidebar } from '../connections/ConnectionSidebar'
+import { StatusBar } from '../runtime/StatusBar'
+import { ToastRegion } from '../runtime/ToastRegion'
+import { useRuntimeEvents } from '../runtime/useRuntimeEvents'
 import { TreePanel } from '../tree/TreePanel'
 import { NodeWorkbench } from '../workbench/NodeWorkbench'
 
 export function AppShell() {
+  const { connectionState, watcherCount, message } = useRuntimeEvents()
+
   return (
     <div className="app-shell">
       <header className="app-shell__header">
@@ -45,10 +50,14 @@ export function AppShell() {
       </aside>
 
       <footer className="app-shell__footer">
-        <span>Status bar placeholder</span>
-        <span>Runtime events will plug in during a later task.</span>
+        <StatusBar
+          connectionState={connectionState}
+          watcherCount={watcherCount}
+          message={message}
+        />
       </footer>
 
+      <ToastRegion message={message} />
       <ConnectionDialog />
     </div>
   )

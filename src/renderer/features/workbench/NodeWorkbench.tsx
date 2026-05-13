@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 
 import { useWorkbenchStore } from '../../stores/useWorkbenchStore'
+import { NodeAclEditor } from './NodeAclEditor'
 import { NodeEditor } from './NodeEditor'
 import { NodeMetaPanel } from './NodeMetaPanel'
 import { formatJson, formatXml } from './formatters'
@@ -14,6 +15,7 @@ export function NodeWorkbench() {
     setActiveTab,
     setActivePane,
     setDraft,
+    setAcl,
     applyFormatter,
     loadTab,
     saveTab,
@@ -130,17 +132,11 @@ export function NodeWorkbench() {
         ) : null}
 
         {activeTab.activePane === 'ACL' ? (
-          <section className="workspace-card" aria-label="Node acl pane">
-            <div className="panel__header">
-              <div>
-                <div className="panel__eyebrow">ACL</div>
-                <h2 className="panel__title">{activeTab.path}</h2>
-              </div>
-            </div>
-            <div className="panel__body">
-              <p>ACL editor will arrive in Task 9.</p>
-            </div>
-          </section>
+          <NodeAclEditor
+            path={activeTab.path}
+            acl={activeTab.acl}
+            onSaved={(acl) => setAcl(activeTab.path, acl)}
+          />
         ) : null}
       </div>
     </section>

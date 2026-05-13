@@ -26,6 +26,7 @@ type WorkbenchState = {
   setActiveTab: (path: string) => void
   setActivePane: (path: string, pane: WorkbenchPane) => void
   setDraft: (path: string, draft: string) => void
+  setAcl: (path: string, acl: NodeSnapshot['acl']) => void
   applyFormatter: (path: string, formatter: (input: string) => string) => void
   loadTab: (path: string) => Promise<void>
   saveTab: (path: string) => Promise<void>
@@ -126,6 +127,16 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       tabs: upsertTab(state.tabs, path, (tab) => ({
         ...tab,
         draft,
+        error: null,
+      })),
+    }))
+  },
+  setAcl: (path, acl) => {
+    set((state) => ({
+      activePath: path,
+      tabs: upsertTab(state.tabs, path, (tab) => ({
+        ...tab,
+        acl,
         error: null,
       })),
     }))
