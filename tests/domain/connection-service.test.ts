@@ -23,6 +23,7 @@ vi.mock('electron', () => ({
 
 class MemoryRepository {
   data: StoredConnection[] = []
+  saves: StoredConnection[][] = []
 
   async list() {
     return this.data
@@ -30,6 +31,7 @@ class MemoryRepository {
 
   async save(next: StoredConnection[]) {
     this.data = next
+    this.saves.push(next)
   }
 }
 
@@ -46,6 +48,31 @@ class MemorySecretStore {
 
   async delete(key: string) {
     this.values.delete(key)
+  }
+}
+
+class ThrowingSecretStore extends MemorySecretStore {
+  constructor(
+    private readonly shouldThrowOn: 'set' | 'delete',
+    private readonly message = 'secret mutation failed',
+  ) {
+    super()
+  }
+
+  override async set(key: string, value: string) {
+    if (this.shouldThrowOn === 'set') {
+      throw new Error(this.message)
+    }
+
+    await super.set(key, value)
+  }
+
+  override async delete(key: string) {
+    if (this.shouldThrowOn === 'delete') {
+      throw new Error(this.message)
+    }
+
+    await super.delete(key)
   }
 }
 
@@ -86,6 +113,46 @@ describe('ConnectionService', () => {
     })
 
     expect(await secretStore.get('connection:local:auth')).toBeNull()
+  })
+
+  it('preserves an existing secret when an update omits authSecret', async () => {
+    const repo = new MemoryRepository()
+    const secretStore = new MemorySecretStore()
+    const service = new ConnectionService(repo as never, secretStore as never)
+
+    await service.save({
+      id: 'local',
+      name: 'Local ZK',
+      hosts: '127.0.0.1:2181',
+      authSecret: 'digest-user:pwd',
+    })
+
+    await service.save({
+      id: 'local',
+      name: 'Renamed ZK',
+      hosts: '127.0.0.1:2181',
+    })
+
+    expect(repo.data[0]?.name).toBe('Renamed ZK')
+    expect(await secretStore.get('connection:local:auth')).toBe('digest-user:pwd')
+  })
+
+  it('does not leave metadata committed when secret storage fails during save', async () => {
+    const repo = new MemoryRepository()
+    const secretStore = new ThrowingSecretStore('set')
+    const service = new ConnectionService(repo as never, secretStore as never)
+
+    await expect(
+      service.save({
+        id: 'local',
+        name: 'Local ZK',
+        hosts: '127.0.0.1:2181',
+        authSecret: 'digest-user:pwd',
+      }),
+    ).rejects.toThrow('secret mutation failed')
+
+    expect(repo.data).toEqual([])
+    expect(repo.saves.at(-1) ?? []).toEqual([])
   })
 })
 

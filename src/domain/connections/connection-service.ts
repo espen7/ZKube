@@ -25,6 +25,7 @@ export class ConnectionService {
     const all = await this.repo.list()
     const existing = all.find((item) => item.id === input.id)
     const secretKey = `connection:${input.id}:auth`
+    const hasAuthSecret = Object.prototype.hasOwnProperty.call(input, 'authSecret')
     const next: StoredConnection = {
       id: input.id,
       name: input.name,
@@ -38,12 +39,27 @@ export class ConnectionService {
     const merged = [...all.filter((item) => item.id !== input.id), next]
     await this.repo.save(merged)
 
-    if (Object.prototype.hasOwnProperty.call(input, 'authSecret')) {
+    if (!hasAuthSecret) {
+      return next
+    }
+
+    try {
       if (input.authSecret) {
         await this.secrets.set(secretKey, input.authSecret)
       } else {
         await this.secrets.delete(secretKey)
       }
+    } catch (error) {
+      try {
+        await this.repo.save(all)
+      } catch (rollbackError) {
+        throw new Error(
+          'Failed to rollback connection metadata after secret mutation failure',
+          { cause: rollbackError },
+        )
+      }
+
+      throw error
     }
 
     return next
