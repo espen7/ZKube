@@ -10,24 +10,17 @@ export function NodeWorkbench() {
   const {
     activePath,
     tabs,
-    defaultNodePath,
-    ensureDefaultTab,
     setActiveTab,
     setActivePane,
     setDraft,
     setAcl,
     applyFormatter,
+    handleRuntimeEvent,
     loadTab,
     saveTab,
   } = useWorkbenchStore()
 
-  useEffect(() => {
-    ensureDefaultTab()
-  }, [ensureDefaultTab])
-
-  const activeTab =
-    tabs.find((tab) => tab.path === activePath) ??
-    tabs.find((tab) => tab.path === defaultNodePath)
+  const activeTab = tabs.find((tab) => tab.path === activePath) ?? null
 
   useEffect(() => {
     if (!activeTab || activeTab.loadState !== 'idle') {
@@ -43,18 +36,28 @@ export function NodeWorkbench() {
     }
 
     return window.zkube.runtime.subscribe((event) => {
-      if (
-        event.type === 'connectionStateChanged' &&
-        event.state === 'connected' &&
-        activeTab?.loadState === 'error'
-      ) {
-        void loadTab(activeTab.path)
-      }
+      handleRuntimeEvent(event)
     })
-  }, [activeTab?.loadState, activeTab?.path, loadTab])
+  }, [handleRuntimeEvent])
 
   if (!activeTab) {
-    return null
+    return (
+      <section aria-label="Node workbench" style={{ width: '100%' }}>
+        <section className="workspace-card" aria-label="Empty node workbench">
+          <div className="panel__header">
+            <div>
+              <div className="panel__eyebrow">Workbench</div>
+              <h2 className="panel__title">Node tabs</h2>
+            </div>
+          </div>
+          <div className="panel__body">
+            <div className="placeholder-row">
+              Open a node from the tree or search results to start editing.
+            </div>
+          </div>
+        </section>
+      </section>
+    )
   }
 
   return (

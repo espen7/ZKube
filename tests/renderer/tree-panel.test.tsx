@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from '../../src/renderer/App'
 import { resetConnectionsStore } from '../../src/renderer/features/connections/useConnectionsStore'
+import { resetWorkbenchStore } from '../../src/renderer/stores/useWorkbenchStore'
 
 describe('Tree panel', () => {
   const originalZkube = window.zkube
@@ -23,6 +24,15 @@ describe('Tree panel', () => {
   let deleteMock: ReturnType<
     typeof vi.fn<(path: string, version?: number) => Promise<void>>
   >
+  let openMock: ReturnType<typeof vi.fn<(path: string) => Promise<{
+    path: string
+    data: Uint8Array
+    stat: {
+      version: number
+      numChildren: number
+    }
+    acl: []
+  }>>>
 
   beforeEach(() => {
     loadChildrenMock = vi
@@ -47,6 +57,23 @@ describe('Tree panel', () => {
     deleteMock = vi
       .fn<(path: string, version?: number) => Promise<void>>()
       .mockResolvedValue(undefined)
+    openMock = vi.fn<(path: string) => Promise<{
+      path: string
+      data: Uint8Array
+      stat: {
+        version: number
+        numChildren: number
+      }
+      acl: []
+    }>>().mockImplementation(async (path: string) => ({
+      path,
+      data: new TextEncoder().encode(`opened:${path}`),
+      stat: {
+        version: 1,
+        numChildren: 0,
+      },
+      acl: [],
+    }))
 
     window.zkube = {
       app: {
@@ -63,15 +90,7 @@ describe('Tree panel', () => {
       zookeeper: {
         disconnect: vi.fn(),
         loadChildren: loadChildrenMock,
-        open: vi.fn().mockResolvedValue({
-          path: '/config/service',
-          data: new TextEncoder().encode('{"service":"zk"}'),
-          stat: {
-            version: 1,
-            numChildren: 0,
-          },
-          acl: [],
-        }),
+        open: openMock,
         search: searchMock,
         create: createMock,
         delete: deleteMock,
@@ -91,6 +110,7 @@ describe('Tree panel', () => {
 
   afterEach(async () => {
     resetConnectionsStore()
+    resetWorkbenchStore()
 
     try {
       const treeModulePath =
@@ -199,6 +219,60 @@ describe('Tree panel', () => {
     )
     expect(createMock.mock.calls[0]?.[1]?.constructor?.name).toBe('Uint8Array')
     expect(deleteMock).toHaveBeenCalledWith('/demo-node')
+  })
+
+  it('opens a loaded tree node in the workbench using the clicked path', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: '\u52a0\u8f7d\u6839\u8282\u70b9' }),
+      )
+    })
+
+    const servicesLabel = await screen.findByText('/services')
+    const servicesRow = servicesLabel.closest('li')
+
+    expect(servicesRow).toBeDefined()
+
+    await act(async () => {
+      fireEvent.click(
+        within(servicesRow as HTMLElement).getByRole('button', {
+          name: '/services',
+        }),
+      )
+    })
+
+    expect(openMock).toHaveBeenCalledWith('/services')
+    expect(openMock).not.toHaveBeenCalledWith('/config/service')
+  })
+
+  it('opens a deep-search result in the workbench using the result path', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    fireEvent.change(screen.getByLabelText('\u7b5b\u9009\u8282\u70b9'), {
+      target: { value: 'live' },
+    })
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: '\u6df1\u5ea6\u641c\u7d22' }),
+      )
+    })
+
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: '/services/api/live',
+        }),
+      )
+    })
+
+    expect(openMock).toHaveBeenCalledWith('/services/api/live')
+    expect(openMock).not.toHaveBeenCalledWith('/config/service')
   })
 
   it('keeps only the latest deep-search results when requests resolve out of order', async () => {

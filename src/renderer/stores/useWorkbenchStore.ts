@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 
 import type { NodeSnapshot } from '../../shared/models/node'
+import type { RuntimeEvent } from '../../shared/models/node'
 
 export type WorkbenchPane = 'Data' | 'Meta' | 'ACL'
 export type WorkbenchLoadState = 'idle' | 'loading' | 'ready' | 'error'
@@ -20,19 +21,19 @@ export type WorkbenchTab = {
 
 type WorkbenchState = {
   activePath: string | null
-  defaultNodePath: string
   tabs: WorkbenchTab[]
-  ensureDefaultTab: () => void
+  sessionId: number
+  openNode: (path: string) => void
   setActiveTab: (path: string) => void
   setActivePane: (path: string, pane: WorkbenchPane) => void
   setDraft: (path: string, draft: string) => void
   setAcl: (path: string, acl: NodeSnapshot['acl']) => void
   applyFormatter: (path: string, formatter: (input: string) => string) => void
+  handleRuntimeEvent: (event: RuntimeEvent) => void
   loadTab: (path: string) => Promise<void>
   saveTab: (path: string) => Promise<void>
 }
 
-const defaultNodePath = '/config/service'
 const defaultStat = {
   version: 0,
   numChildren: 0,
@@ -81,30 +82,24 @@ function upsertTab(
   return nextTabs.map((tab) => (tab.path === path ? updater(tab) : tab))
 }
 
-function initialState() {
+let nextSessionId = 0
+
+function createSessionState() {
+  nextSessionId += 1
   return {
-    activePath: defaultNodePath,
-    defaultNodePath,
+    activePath: null,
     tabs: [],
+    sessionId: nextSessionId,
   }
 }
 
 export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
-  ...initialState(),
-  ensureDefaultTab: () => {
-    const { activePath, defaultNodePath: path, tabs } = get()
-
-    if (tabs.some((tab) => tab.path === path)) {
-      if (!activePath) {
-        set({ activePath: path })
-      }
-      return
-    }
-
-    set({
+  ...createSessionState(),
+  openNode: (path) => {
+    set((state) => ({
       activePath: path,
-      tabs: [...tabs, createTab(path)],
-    })
+      tabs: upsertTab(state.tabs, path, (tab) => tab),
+    }))
   },
   setActiveTab: (path) => {
     set((state) => ({
@@ -151,11 +146,30 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       })),
     }))
   },
+  handleRuntimeEvent: (event) => {
+    if (event.type !== 'connectionStateChanged') {
+      return
+    }
+
+    if (event.state === 'connected') {
+      const { activePath, tabs, loadTab } = get()
+      const activeTab = tabs.find((tab) => tab.path === activePath)
+
+      if (activeTab?.loadState === 'error') {
+        void loadTab(activeTab.path)
+      }
+
+      return
+    }
+
+    set(createSessionState())
+  },
   loadTab: async (path) => {
     if (!window.zkube?.zookeeper.open) {
       return
     }
 
+    const sessionId = get().sessionId
     const currentTab = get().tabs.find((tab) => tab.path === path) ?? createTab(path)
     if (currentTab.loadState === 'loading' || currentTab.loadState === 'ready') {
       return
@@ -172,6 +186,10 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 
     try {
       const snapshot = await window.zkube.zookeeper.open(path)
+      if (get().sessionId !== sessionId) {
+        return
+      }
+
       const draft = decoder.decode(snapshot.data)
 
       set((state) => ({
@@ -187,6 +205,10 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         })),
       }))
     } catch (error) {
+      if (get().sessionId !== sessionId) {
+        return
+      }
+
       set((state) => ({
         activePath: path,
         tabs: upsertTab(state.tabs, path, (tab) => ({
@@ -209,6 +231,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
       return
     }
 
+    const sessionId = get().sessionId
     const draftToSave = currentTab.draft
     const versionToSave = currentTab.stat.version
 
@@ -230,6 +253,9 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         encoder.encode(draftToSave),
         versionToSave,
       )
+      if (get().sessionId !== sessionId) {
+        return
+      }
 
       set((state) => ({
         tabs: state.tabs.map((tab) =>
@@ -248,6 +274,10 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         ),
       }))
     } catch (error) {
+      if (get().sessionId !== sessionId) {
+        return
+      }
+
       set((state) => ({
         tabs: state.tabs.map((tab) =>
           tab.path === path
@@ -264,5 +294,5 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
 }))
 
 export function resetWorkbenchStore() {
-  useWorkbenchStore.setState(initialState())
+  useWorkbenchStore.setState(createSessionState())
 }

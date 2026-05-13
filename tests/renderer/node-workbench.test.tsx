@@ -25,6 +25,7 @@ vi.mock('@monaco-editor/react', () => ({
 
 import App from '../../src/renderer/App'
 import { formatJson, formatXml } from '../../src/renderer/features/workbench/formatters'
+import { useWorkbenchStore } from '../../src/renderer/stores/useWorkbenchStore'
 import type { NodeSnapshot, RuntimeEvent } from '../../src/shared/models/node'
 
 function createDeferred<T>() {
@@ -131,10 +132,29 @@ describe('node workbench', () => {
     }
   }
 
+  async function openNode(path = '/config/service') {
+    await act(async () => {
+      useWorkbenchStore.getState().openNode(path)
+    })
+  }
+
+  it('renders an empty workbench before any node is opened', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    expect(
+      screen.getByText('Open a node from the tree or search results to start editing.'),
+    ).toBeInTheDocument()
+    expect(openMock).not.toHaveBeenCalled()
+  })
+
   it('mounts the monaco editor and switches between data/meta/acl panes', async () => {
     await act(async () => {
       render(<App />)
     })
+
+    await openNode()
 
     expect(openMock).toHaveBeenCalledWith('/config/service')
     expect(await screen.findByTestId('monaco-editor')).toHaveValue(
@@ -159,6 +179,8 @@ describe('node workbench', () => {
     await act(async () => {
       render(<App />)
     })
+
+    await openNode()
 
     fireEvent.click(screen.getByRole('button', { name: 'ACL' }))
 
@@ -192,6 +214,8 @@ describe('node workbench', () => {
       render(<App />)
     })
 
+    await openNode()
+
     fireEvent.click(screen.getByRole('button', { name: 'ACL' }))
 
     const writeCheckbox = await screen.findByRole('checkbox', { name: 'write' })
@@ -217,6 +241,8 @@ describe('node workbench', () => {
       render(<App />)
     })
 
+    await openNode()
+
     expect(await screen.findByRole('alert')).toHaveTextContent('boom')
 
     await act(async () => {
@@ -232,6 +258,8 @@ describe('node workbench', () => {
     await act(async () => {
       render(<App />)
     })
+
+    await openNode()
 
     expect(await screen.findByRole('alert')).toHaveTextContent('boom')
     expect(openMock).toHaveBeenCalledTimes(1)
@@ -257,6 +285,8 @@ describe('node workbench', () => {
       render(<App />)
     })
 
+    await openNode()
+
     const editor = await screen.findByTestId('monaco-editor')
     expect(editor).toHaveProperty('readOnly', true)
   })
@@ -265,6 +295,8 @@ describe('node workbench', () => {
     await act(async () => {
       render(<App />)
     })
+
+    await openNode()
 
     const editor = await screen.findByTestId('monaco-editor')
 
@@ -299,5 +331,78 @@ describe('node workbench', () => {
       new TextEncoder().encode('{"service":"zk","enabled":false}'),
       8,
     )
+  })
+
+  it('clears old workbench tabs on connection changes and prevents saving stale paths', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    await openNode()
+    expect(await screen.findByTestId('monaco-editor')).toHaveValue(
+      '{"service":"zk"}',
+    )
+
+    fireEvent.change(screen.getByTestId('monaco-editor'), {
+      target: { value: '{"service":"old-cluster"}' },
+    })
+
+    await act(async () => {
+      emitRuntimeEvent({
+        type: 'connectionStateChanged',
+        state: 'reconnecting',
+      })
+    })
+
+    expect(
+      screen.getByText('Open a node from the tree or search results to start editing.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '/config/service' })).not.toBeInTheDocument()
+    expect(useWorkbenchStore.getState().activePath).toBeNull()
+    expect(useWorkbenchStore.getState().tabs).toHaveLength(0)
+
+    await act(async () => {
+      await useWorkbenchStore.getState().saveTab('/config/service')
+    })
+
+    expect(updateMock).not.toHaveBeenCalled()
+  })
+
+  it('ignores stale node loads that finish after the connection changes', async () => {
+    const deferred = createDeferred<NodeSnapshot>()
+    openMock.mockReturnValueOnce(deferred.promise)
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    await openNode('/services/api')
+
+    expect(await screen.findByTestId('monaco-editor')).toHaveProperty('readOnly', true)
+
+    await act(async () => {
+      emitRuntimeEvent({
+        type: 'connectionStateChanged',
+        state: 'reconnecting',
+      })
+    })
+
+    await act(async () => {
+      deferred.resolve({
+        path: '/services/api',
+        data: new TextEncoder().encode('{"service":"stale"}'),
+        stat: {
+          version: 4,
+          numChildren: 1,
+        },
+        acl: [],
+      })
+    })
+
+    expect(
+      screen.getByText('Open a node from the tree or search results to start editing.'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '/services/api' })).not.toBeInTheDocument()
+    expect(useWorkbenchStore.getState().tabs).toHaveLength(0)
   })
 })

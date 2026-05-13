@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 
+import { useWorkbenchStore } from '../../stores/useWorkbenchStore'
 import { TreeSearchBar } from './TreeSearchBar'
 import { useTreeStore } from './useTreeStore'
 
@@ -10,6 +11,7 @@ type TreeBranchProps = {
   childrenByPath: Record<string, string[]>
   query: string
   onToggle: (path: string) => void
+  onOpen: (path: string) => void
 }
 
 function shouldRenderPath(
@@ -36,6 +38,7 @@ function TreeBranch({
   childrenByPath,
   query,
   onToggle,
+  onOpen,
 }: TreeBranchProps) {
   if (!shouldRenderPath(path, query, childrenByPath)) {
     return null
@@ -57,7 +60,9 @@ function TreeBranch({
         <button type="button" onClick={() => void onToggle(path)}>
           {isExpanded ? '收起' : '展开'}
         </button>
-        <span>{path}</span>
+        <button type="button" onClick={() => onOpen(path)}>
+          {path}
+        </button>
       </div>
       {isExpanded && children.length > 0 ? (
         <ul style={{ display: 'grid', gap: '8px', margin: '8px 0 0', padding: 0 }}>
@@ -70,6 +75,7 @@ function TreeBranch({
               childrenByPath={childrenByPath}
               query={query}
               onToggle={onToggle}
+              onOpen={onOpen}
             />
           ))}
         </ul>
@@ -79,6 +85,7 @@ function TreeBranch({
 }
 
 export function TreePanel() {
+  const openNode = useWorkbenchStore((store) => store.openNode)
   const {
     childrenByPath,
     expandedPaths,
@@ -118,6 +125,9 @@ export function TreePanel() {
           <h2 className="panel__title">节点树</h2>
         </div>
         <div className="panel__actions">
+          <button type="button" onClick={() => openNode('/')}>
+            Open /
+          </button>
           <button type="button" onClick={() => void loadRoot()}>
             加载根节点
           </button>
@@ -166,6 +176,7 @@ export function TreePanel() {
                   childrenByPath={childrenByPath}
                   query={query}
                   onToggle={toggleNode}
+                  onOpen={openNode}
                 />
               ))
             )}
@@ -182,7 +193,9 @@ export function TreePanel() {
             >
               {searchResults.map((path) => (
                 <li key={path} className="placeholder-row">
-                  {path}
+                  <button type="button" onClick={() => openNode(path)}>
+                    {path}
+                  </button>
                 </li>
               ))}
             </ul>
