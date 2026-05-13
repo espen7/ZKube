@@ -1,6 +1,7 @@
 import { ConnectionDialog } from '../connections/ConnectionDialog'
 import { ConnectionSidebar } from '../connections/ConnectionSidebar'
 import { TreePanel } from '../tree/TreePanel'
+import { NodeWorkbench } from '../workbench/NodeWorkbench'
 
 export function AppShell() {
   return (
@@ -8,9 +9,9 @@ export function AppShell() {
       <header className="app-shell__header">
         <div className="app-shell__brand">
           <h1>ZKube</h1>
-          <p>ZooKeeper 桌面工作台</p>
+          <p>ZooKeeper desktop workbench</p>
         </div>
-        <div className="muted">控制台骨架 / Task 6</div>
+        <div className="muted">Control center shell / Task 8</div>
       </header>
 
       <div
@@ -26,37 +27,26 @@ export function AppShell() {
       </div>
 
       <main className="workspace">
-        <section className="workspace-card" aria-label="工作台主区域">
-          <div className="panel__eyebrow">Workbench</div>
-          <h2>准备连接并开始浏览集群</h2>
-          <p>
-            当前阶段先提供三栏桌面骨架、连接侧栏和占位工作台。树视图、节点编辑器和运行态反馈会在后续任务接入。
-          </p>
-          <div className="placeholder-list" aria-hidden="true">
-            <div className="placeholder-row">节点树面板占位</div>
-            <div className="placeholder-row">数据编辑器占位</div>
-            <div className="placeholder-row">ACL / Meta 占位</div>
-          </div>
-        </section>
+        <NodeWorkbench />
       </main>
 
-      <aside className="panel inspector" aria-label="上下文侧栏">
+      <aside className="panel inspector" aria-label="Inspector sidebar">
         <div className="panel__header">
           <div>
             <div className="panel__eyebrow">Inspector</div>
-            <h2 className="panel__title">上下文占位</h2>
+            <h2 className="panel__title">Context placeholder</h2>
           </div>
         </div>
         <div className="panel__body">
-          <div className="placeholder-row">连接详情</div>
-          <div className="placeholder-row">最近操作</div>
-          <div className="placeholder-row">状态反馈</div>
+          <div className="placeholder-row">Connection details</div>
+          <div className="placeholder-row">Recent actions</div>
+          <div className="placeholder-row">Runtime feedback</div>
         </div>
       </aside>
 
       <footer className="app-shell__footer">
-        <span>状态栏占位</span>
-        <span>等待后续任务接入运行时事件</span>
+        <span>Status bar placeholder</span>
+        <span>Runtime events will plug in during a later task.</span>
       </footer>
 
       <ConnectionDialog />
