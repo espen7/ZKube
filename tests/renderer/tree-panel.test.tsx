@@ -4,6 +4,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../../src/renderer/App'
 import { resetConnectionsStore } from '../../src/renderer/features/connections/useConnectionsStore'
 import { resetWorkbenchStore } from '../../src/renderer/stores/useWorkbenchStore'
+import type { TreeNodeRow } from '../../src/shared/models/node'
+
+function createRow(
+  path: string,
+  options: Partial<Omit<TreeNodeRow, 'path' | 'name'>> = {},
+): TreeNodeRow {
+  const segments = path.split('/').filter(Boolean)
+  return {
+    path,
+    name: segments.at(-1) ?? '/',
+    hasChildren: false,
+    dataLength: 0,
+    mtime: Date.now() - 60_000,
+    ...options,
+  }
+}
 
 describe('Tree panel', () => {
   const originalZkube = window.zkube
@@ -15,7 +31,7 @@ describe('Tree panel', () => {
     }) => void
   >()
   let loadChildrenMock: ReturnType<
-    typeof vi.fn<(path: string) => Promise<string[]>>
+    typeof vi.fn<(path: string) => Promise<TreeNodeRow[]>>
   >
   let searchMock: ReturnType<typeof vi.fn<(query: string) => Promise<string[]>>>
   let createMock: ReturnType<
@@ -40,14 +56,24 @@ describe('Tree panel', () => {
 
   beforeEach(() => {
     loadChildrenMock = vi
-      .fn<(path: string) => Promise<string[]>>()
+      .fn<(path: string) => Promise<TreeNodeRow[]>>()
       .mockImplementation(async (path: string) => {
         if (path === '/') {
-          return ['configs', 'services']
+          return [
+            createRow('/configs', { dataLength: 512, mtime: Date.now() - 15_000 }),
+            createRow('/services', {
+              hasChildren: true,
+              dataLength: 2_048,
+              mtime: Date.now() - 120_000,
+            }),
+          ]
         }
 
         if (path === '/services') {
-          return ['api', 'web']
+          return [
+            createRow('/services/api', { dataLength: 99, mtime: Date.now() - 45_000 }),
+            createRow('/services/web', { dataLength: 10, mtime: Date.now() - 30_000 }),
+          ]
         }
 
         return []
@@ -165,15 +191,20 @@ describe('Tree panel', () => {
     })
 
     expect(loadChildrenMock).toHaveBeenCalledWith('/')
-    expect(await screen.findByText('/configs')).toBeInTheDocument()
-    expect(screen.getByText('/services')).toBeInTheDocument()
+    expect(await screen.findByRole('columnheader', { name: 'Node' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Size' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Updated' })).toBeInTheDocument()
+    expect(await screen.findByText('configs')).toBeInTheDocument()
+    expect(screen.getByText('services')).toBeInTheDocument()
+    expect(screen.queryByText('/configs')).not.toBeInTheDocument()
+    expect(screen.getByTitle('/configs')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Filter nodes'), {
       target: { value: 'serv' },
     })
 
-    expect(screen.getByText('/services')).toBeInTheDocument()
-    expect(screen.queryByText('/configs')).not.toBeInTheDocument()
+    expect(screen.getByText('services')).toBeInTheDocument()
+    expect(screen.queryByText('configs')).not.toBeInTheDocument()
     expect(searchMock).not.toHaveBeenCalled()
   })
 
@@ -189,7 +220,7 @@ describe('Tree panel', () => {
     const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     const servicesRow = within(loadedTree)
       .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('/services'))
+      .find((item) => within(item).queryByText('services'))
 
     expect(servicesRow).toBeDefined()
 
@@ -200,7 +231,7 @@ describe('Tree panel', () => {
     })
 
     expect(loadChildrenMock).toHaveBeenCalledWith('/services')
-    expect(await screen.findByText('/services/api')).toBeInTheDocument()
+    expect(await screen.findByText('api')).toBeInTheDocument()
   })
 
   it('runs deep search and exposes create/delete entry points', async () => {
@@ -250,7 +281,7 @@ describe('Tree panel', () => {
       )
     })
 
-    const servicesLabel = await screen.findByText('/services')
+    const servicesLabel = await screen.findByText('services')
     const servicesRow = servicesLabel.closest('li')
 
     expect(servicesRow).toBeDefined()
@@ -258,13 +289,34 @@ describe('Tree panel', () => {
     await act(async () => {
       fireEvent.click(
         within(servicesRow as HTMLElement).getByRole('button', {
-          name: '/services',
+          name: 'Open node /services',
         }),
       )
     })
 
     expect(openMock).toHaveBeenCalledWith('/services')
     expect(openMock).not.toHaveBeenCalledWith('/config/service')
+  })
+
+  it('opens a node when clicking the whole compact row, not just the text label', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
+    })
+
+    const rowLabel = await screen.findByText('services')
+    const row = rowLabel.closest('.tree-row')
+
+    expect(row).toBeTruthy()
+
+    await act(async () => {
+      fireEvent.click(row as HTMLElement)
+    })
+
+    expect(openMock).toHaveBeenCalledWith('/services')
   })
 
   it('opens a deep-search result in the workbench using the result path', async () => {
@@ -391,7 +443,7 @@ describe('Tree panel', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
     })
 
-    expect(await screen.findByText('/configs')).toBeInTheDocument()
+    expect(await screen.findByText('configs')).toBeInTheDocument()
 
     await act(async () => {
       emitRuntimeEvent({
@@ -400,7 +452,7 @@ describe('Tree panel', () => {
       })
     })
 
-    expect(screen.queryByText('/configs')).not.toBeInTheDocument()
+    expect(screen.queryByText('configs')).not.toBeInTheDocument()
     expect(
       screen.getByText('Load the root nodes first, then expand the branches you need.'),
     ).toBeInTheDocument()
@@ -415,15 +467,22 @@ describe('Tree panel', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
     })
 
-    expect(await screen.findByText('/configs')).toBeInTheDocument()
+    expect(await screen.findByText('configs')).toBeInTheDocument()
 
     loadChildrenMock.mockImplementation(async (path: string) => {
       if (path === '/') {
-        return ['configs', 'services', 'jobs']
+        return [
+          createRow('/configs', { dataLength: 512 }),
+          createRow('/services', { hasChildren: true, dataLength: 2_048 }),
+          createRow('/jobs', { dataLength: 3_072 }),
+        ]
       }
 
       if (path === '/services') {
-        return ['api', 'web']
+        return [
+          createRow('/services/api', { dataLength: 99 }),
+          createRow('/services/web', { dataLength: 10 }),
+        ]
       }
 
       return []
@@ -436,19 +495,22 @@ describe('Tree panel', () => {
       })
     })
 
-    expect(await screen.findByText('/jobs')).toBeInTheDocument()
+    expect(await screen.findByText('jobs')).toBeInTheDocument()
   })
 
   it('keeps unrelated branch loads usable after runtime invalidation', async () => {
-    let resolveServicesLoad: ((value: string[]) => void) | undefined
+    let resolveServicesLoad: ((value: TreeNodeRow[]) => void) | undefined
 
     loadChildrenMock.mockImplementation((path: string) => {
       if (path === '/') {
-        return Promise.resolve(['configs', 'services'])
+        return Promise.resolve([
+          createRow('/configs', { dataLength: 512 }),
+          createRow('/services', { hasChildren: true, dataLength: 2_048 }),
+        ])
       }
 
       if (path === '/services') {
-        return new Promise<string[]>((resolve) => {
+        return new Promise<TreeNodeRow[]>((resolve) => {
           resolveServicesLoad = resolve
         })
       }
@@ -467,7 +529,7 @@ describe('Tree panel', () => {
     const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     const servicesRow = within(loadedTree)
       .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('/services'))
+      .find((item) => within(item).queryByText('services'))
 
     expect(servicesRow).toBeDefined()
 
@@ -485,10 +547,10 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      resolveServicesLoad?.(['api'])
+      resolveServicesLoad?.([createRow('/services/api', { dataLength: 99 })])
     })
 
-    expect(await screen.findByText('/services/api')).toBeInTheDocument()
+    expect(await screen.findByText('api')).toBeInTheDocument()
   })
 
   it('reloads recreated branches after a runtime delete event', async () => {
@@ -503,7 +565,7 @@ describe('Tree panel', () => {
     let loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     let servicesRow = within(loadedTree)
       .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('/services'))
+      .find((item) => within(item).queryByText('services'))
 
     expect(servicesRow).toBeDefined()
 
@@ -513,7 +575,7 @@ describe('Tree panel', () => {
       )
     })
 
-    expect(await screen.findByText('/services/api')).toBeInTheDocument()
+    expect(await screen.findByText('api')).toBeInTheDocument()
 
     await act(async () => {
       emitRuntimeEvent({
@@ -524,11 +586,14 @@ describe('Tree panel', () => {
 
     loadChildrenMock.mockImplementation(async (path: string) => {
       if (path === '/') {
-        return ['configs', 'services']
+        return [
+          createRow('/configs', { dataLength: 512 }),
+          createRow('/services', { hasChildren: true, dataLength: 2_048 }),
+        ]
       }
 
       if (path === '/services') {
-        return ['worker']
+        return [createRow('/services/worker', { dataLength: 88 })]
       }
 
       return []
@@ -544,7 +609,7 @@ describe('Tree panel', () => {
     loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     servicesRow = within(loadedTree)
       .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('/services'))
+      .find((item) => within(item).queryByText('services'))
 
     expect(servicesRow).toBeDefined()
 
@@ -554,31 +619,34 @@ describe('Tree panel', () => {
       )
     })
 
-    expect(await screen.findByText('/services/worker')).toBeInTheDocument()
+    expect(await screen.findByText('worker')).toBeInTheDocument()
     expect(
       loadChildrenMock.mock.calls.filter(([path]) => path === '/services'),
     ).toHaveLength(2)
   })
 
   it('reloads a branch when that same path changes during an in-flight load', async () => {
-    let resolveFirstServicesLoad: ((value: string[]) => void) | undefined
+    let resolveFirstServicesLoad: ((value: TreeNodeRow[]) => void) | undefined
     let servicesLoadCount = 0
 
     loadChildrenMock.mockImplementation((path: string) => {
       if (path === '/') {
-        return Promise.resolve(['configs', 'services'])
+        return Promise.resolve([
+          createRow('/configs', { dataLength: 512 }),
+          createRow('/services', { hasChildren: true, dataLength: 2_048 }),
+        ])
       }
 
       if (path === '/services') {
         servicesLoadCount += 1
 
         if (servicesLoadCount === 1) {
-          return new Promise<string[]>((resolve) => {
+          return new Promise<TreeNodeRow[]>((resolve) => {
             resolveFirstServicesLoad = resolve
           })
         }
 
-        return Promise.resolve(['worker'])
+        return Promise.resolve([createRow('/services/worker', { dataLength: 88 })])
       }
 
       return Promise.resolve([])
@@ -595,7 +663,7 @@ describe('Tree panel', () => {
     const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     const servicesRow = within(loadedTree)
       .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('/services'))
+      .find((item) => within(item).queryByText('services'))
 
     expect(servicesRow).toBeDefined()
 
@@ -613,12 +681,50 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      resolveFirstServicesLoad?.(['api'])
+      resolveFirstServicesLoad?.([createRow('/services/api', { dataLength: 99 })])
     })
 
-    expect(await screen.findByText('/services/worker')).toBeInTheDocument()
+    expect(await screen.findByText('worker')).toBeInTheDocument()
     expect(
       loadChildrenMock.mock.calls.filter(([path]) => path === '/services'),
     ).toHaveLength(2)
+  })
+
+  it('renders compact tree rows with size and updated values, falling back to dashes on missing metadata', async () => {
+    loadChildrenMock.mockResolvedValueOnce([
+      createRow('/services', {
+        hasChildren: true,
+        dataLength: 2_048,
+        mtime: Date.now() - 90_000,
+      }),
+      createRow('/broken', {
+        dataLength: null,
+        mtime: null,
+      }),
+    ])
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
+    })
+
+    const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
+    const servicesRow = within(loadedTree)
+      .getAllByRole('listitem')
+      .find((item) => within(item).queryByText('services'))
+    const brokenRow = within(loadedTree)
+      .getAllByRole('listitem')
+      .find((item) => within(item).queryByText('broken'))
+
+    expect(servicesRow).toBeDefined()
+    expect(brokenRow).toBeDefined()
+    expect(within(servicesRow as HTMLElement).getByText('2 KB')).toBeInTheDocument()
+    expect(
+      within(servicesRow as HTMLElement).getByText(/ago$/i),
+    ).toBeInTheDocument()
+    expect(within(brokenRow as HTMLElement).getAllByText('--')).toHaveLength(2)
   })
 })

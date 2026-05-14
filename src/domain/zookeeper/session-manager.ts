@@ -1,9 +1,14 @@
-import type { AclEntry, NodeSnapshot, RuntimeEvent } from '../../shared/models/node'
+import type {
+  AclEntry,
+  NodeSnapshot,
+  RuntimeEvent,
+  TreeNodeRow,
+} from '../../shared/models/node'
 import type { ZooKeeperClient } from './client'
 
 export class SessionManager {
   private client: ZooKeeperClient | null = null
-  private childrenCache = new Map<string, string[]>()
+  private childrenCache = new Map<string, TreeNodeRow[]>()
   private listeners = new Set<(event: RuntimeEvent) => void>()
 
   constructor(private readonly createClient: () => ZooKeeperClient) {}
@@ -25,7 +30,7 @@ export class SessionManager {
     this.emit({ type: 'connectionStateChanged', state: 'disconnected' })
   }
 
-  async loadChildren(path: string): Promise<string[]> {
+  async loadChildren(path: string): Promise<TreeNodeRow[]> {
     if (this.childrenCache.has(path)) {
       return this.childrenCache.get(path)!
     }

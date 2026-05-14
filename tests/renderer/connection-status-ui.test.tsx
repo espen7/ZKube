@@ -12,7 +12,7 @@ import { resetConnectionsStore } from '../../src/renderer/features/connections/u
 import { resetTreeStore } from '../../src/renderer/features/tree/useTreeStore'
 import { resetWorkbenchStore } from '../../src/renderer/stores/useWorkbenchStore'
 import type { StoredConnection } from '../../src/shared/models/connection'
-import type { RuntimeEvent } from '../../src/shared/models/node'
+import type { RuntimeEvent, TreeNodeRow } from '../../src/shared/models/node'
 
 const savedConnections: StoredConnection[] = [
   {
@@ -22,6 +22,16 @@ const savedConnections: StoredConnection[] = [
     sessionTimeoutMs: 20_000,
     createdAt: '2026-05-13T08:00:00.000Z',
     updatedAt: '2026-05-13T08:00:00.000Z',
+  },
+]
+
+const rootRows: TreeNodeRow[] = [
+  {
+    path: '/services',
+    name: 'services',
+    hasChildren: true,
+    dataLength: 128,
+    mtime: Date.now() - 60_000,
   },
 ]
 
@@ -44,7 +54,7 @@ describe('connection status ui', () => {
       },
       zookeeper: {
         disconnect: vi.fn().mockResolvedValue(undefined),
-        loadChildren: vi.fn().mockResolvedValue([]),
+        loadChildren: vi.fn().mockResolvedValue(rootRows),
         open: vi.fn(),
         search: vi.fn(),
         create: vi.fn(),
@@ -97,6 +107,11 @@ describe('connection status ui', () => {
       within(card as HTMLElement).getByLabelText(/connection health local zookeeper/i),
     ).toHaveAttribute('data-state', 'connecting')
     expect(within(screen.getByLabelText('Runtime status bar')).getByText('Connecting...')).toBeInTheDocument()
+    expect(
+      within(screen.getByLabelText('Runtime status bar')).getByText(
+        'Connecting... · Local ZooKeeper / 192.168.171.15:2181',
+      ),
+    ).toBeInTheDocument()
 
     await act(async () => {
       emitRuntimeEvent({
@@ -113,6 +128,16 @@ describe('connection status ui', () => {
       within(card as HTMLElement).getByRole('button', {
         name: /disconnect connection local zookeeper/i,
       }),
+    ).toBeInTheDocument()
+    expect(
+      within(card as HTMLElement).getByRole('button', {
+        name: /disconnect connection local zookeeper/i,
+      }),
+    ).toHaveClass('button-danger')
+    expect(
+      within(screen.getByLabelText('Runtime status bar')).getByText(
+        'Healthy · Local ZooKeeper / 192.168.171.15:2181',
+      ),
     ).toBeInTheDocument()
 
     fireEvent.click(
@@ -138,6 +163,11 @@ describe('connection status ui', () => {
       ).toBeInTheDocument()
     })
     expect(within(card as HTMLElement).queryByText('Healthy')).not.toBeInTheDocument()
+    expect(
+      within(screen.getByLabelText('Runtime status bar')).queryByText(
+        /192\.168\.171\.15:2181/i,
+      ),
+    ).not.toBeInTheDocument()
   })
 
   it('restores the connect action when connecting fails', async () => {

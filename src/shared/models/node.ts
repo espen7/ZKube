@@ -3,6 +3,14 @@ export type NodeStat = {
   numChildren: number
 }
 
+export type TreeNodeRow = {
+  path: string
+  name: string
+  hasChildren: boolean
+  dataLength: number | null
+  mtime: number | null
+}
+
 export type AclEntry = {
   scheme: string
   id: string

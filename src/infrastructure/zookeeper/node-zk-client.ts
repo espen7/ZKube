@@ -2,7 +2,11 @@ import nodeZkModule from 'node-zookeeper-client'
 
 import type { ZooKeeperClient } from '../../domain/zookeeper/client'
 import type { AppErrorCode } from '../../shared/errors'
-import type { AclEntry, NodeSnapshot } from '../../shared/models/node'
+import type {
+  AclEntry,
+  NodeSnapshot,
+  TreeNodeRow,
+} from '../../shared/models/node'
 
 type ConnectionConfig = {
   hosts: string
@@ -14,6 +18,8 @@ type ConnectionConfig = {
 type NodeZkStat = {
   version: number
   numChildren: number
+  mtime?: number
+  dataLength?: number
 }
 
 type NodeZkAclRecord = {
@@ -208,34 +214,47 @@ export class NodeZkClient implements ZooKeeperClient {
     this.client = null
   }
 
-  async getChildren(path: string): Promise<string[]> {
-    return new Promise((resolve, reject) => {
-      this.requireClient().getChildren(path, (error, children = []) => {
+  async getChildren(path: string): Promise<TreeNodeRow[]> {
+    const children = await new Promise<string[]>((resolve, reject) => {
+      this.requireClient().getChildren(path, (error, childNames = []) => {
         if (error) {
           reject(this.toAppError(error))
           return
         }
 
-        resolve(children)
+        resolve(childNames)
       })
     })
+
+    return Promise.all(
+      children.map(async (childName) => {
+        const childPath = joinChildPath(path, childName)
+
+        try {
+          const { data, stat } = await this.getNodeData(childPath)
+          return {
+            path: childPath,
+            name: childName,
+            hasChildren: (stat?.numChildren ?? 0) > 0,
+            dataLength: data.length,
+            mtime: stat?.mtime ?? null,
+          } satisfies TreeNodeRow
+        } catch {
+          return {
+            path: childPath,
+            name: childName,
+            hasChildren: false,
+            dataLength: null,
+            mtime: null,
+          } satisfies TreeNodeRow
+        }
+      }),
+    )
   }
 
   async getNode(path: string): Promise<NodeSnapshot> {
     const [dataResult, acl] = await Promise.all([
-      new Promise<{ data: Buffer; stat: NodeZkStat }>((resolve, reject) => {
-        this.requireClient().getData(path, (error, data, stat) => {
-          if (error) {
-            reject(this.toAppError(error))
-            return
-          }
-
-          resolve({
-            data: data ?? Buffer.alloc(0),
-            stat: stat ?? { version: 0, numChildren: 0 },
-          })
-        })
-      }),
+      this.getNodeData(path),
       new Promise<AclEntry[]>((resolve, reject) => {
         this.requireClient().getACL(path, (error, aclRecords = []) => {
           if (error) {
@@ -254,6 +273,24 @@ export class NodeZkClient implements ZooKeeperClient {
       stat: dataResult.stat,
       acl,
     }
+  }
+
+  private async getNodeData(
+    path: string,
+  ): Promise<{ data: Buffer; stat: NodeZkStat }> {
+    return new Promise<{ data: Buffer; stat: NodeZkStat }>((resolve, reject) => {
+      this.requireClient().getData(path, (error, data, stat) => {
+        if (error) {
+          reject(this.toAppError(error))
+          return
+        }
+
+        resolve({
+          data: data ?? Buffer.alloc(0),
+          stat: stat ?? { version: 0, numChildren: 0 },
+        })
+      })
+    })
   }
 
   async search(query: string): Promise<string[]> {
@@ -389,6 +426,10 @@ function getErrorMessage(error: unknown, fallbackMessage?: string): string {
   }
 
   return fallbackMessage ?? 'ZooKeeper operation failed'
+}
+
+function joinChildPath(parentPath: string, childName: string): string {
+  return parentPath === '/' ? `/${childName}` : `${parentPath}/${childName}`
 }
 
 function createAppError(

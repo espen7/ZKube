@@ -1,3 +1,6 @@
+import { useEffect, useRef, useState } from 'react'
+import type { CSSProperties } from 'react'
+
 import { ConnectionDialog } from '../connections/ConnectionDialog'
 import { ConnectionSidebar } from '../connections/ConnectionSidebar'
 import { NavigationToolRail } from './NavigationToolRail'
@@ -6,13 +9,61 @@ import { useRuntimeEvents } from '../runtime/useRuntimeEvents'
 import { TreePanel } from '../tree/TreePanel'
 import { NodeWorkbench } from '../workbench/NodeWorkbench'
 import { useI18n } from '../../use-i18n'
+import { useConnectionsStore } from '../connections/useConnectionsStore'
+
+const DEFAULT_NAVIGATION_WIDTH = 860
+const MIN_NAVIGATION_WIDTH = 700
+const MAX_NAVIGATION_WIDTH = 1180
 
 export function AppShell() {
   const { connectionState, watcherCount, message } = useRuntimeEvents()
+  const { activeConnectionId, items } = useConnectionsStore()
   const { t } = useI18n()
+  const [navigationWidth, setNavigationWidth] = useState(DEFAULT_NAVIGATION_WIDTH)
+  const dragOffsetRef = useRef<number | null>(null)
+  const activeConnection =
+    items.find((item) => item.id === activeConnectionId) ?? null
+
+  useEffect(() => {
+    const handleMouseMove = (event: MouseEvent) => {
+      if (dragOffsetRef.current === null) {
+        return
+      }
+
+      const nextWidth = Math.min(
+        MAX_NAVIGATION_WIDTH,
+        Math.max(MIN_NAVIGATION_WIDTH, event.clientX - dragOffsetRef.current),
+      )
+      setNavigationWidth(nextWidth)
+    }
+
+    const stopDragging = () => {
+      dragOffsetRef.current = null
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', stopDragging)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', stopDragging)
+    }
+  }, [])
+
+  const startDragging = (clientX: number) => {
+    dragOffsetRef.current = clientX - navigationWidth
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }
 
   return (
-    <div className="app-shell">
+    <div
+      aria-label="ZKube app shell"
+      className="app-shell"
+      style={{ '--navigation-width': `${navigationWidth}px` } as CSSProperties}
+    >
       <header className="app-shell__header">
         <div className="app-shell__brand">
           <h1>ZKube</h1>
@@ -26,6 +77,23 @@ export function AppShell() {
         <ConnectionSidebar />
         <TreePanel />
       </section>
+
+      <div
+        aria-label="Resize tree and workbench"
+        className="layout-resizer"
+        role="separator"
+        tabIndex={0}
+        aria-orientation="vertical"
+        onMouseDown={(event) => startDragging(event.clientX)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft') {
+            setNavigationWidth((width) => Math.max(MIN_NAVIGATION_WIDTH, width - 24))
+          }
+          if (event.key === 'ArrowRight') {
+            setNavigationWidth((width) => Math.min(MAX_NAVIGATION_WIDTH, width + 24))
+          }
+        }}
+      />
 
       <main className="workspace">
         <NodeWorkbench />
@@ -48,6 +116,8 @@ export function AppShell() {
       <footer className="app-shell__footer">
         <StatusBar
           connectionState={connectionState}
+          activeConnectionName={activeConnection?.name ?? null}
+          activeConnectionHosts={activeConnection?.hosts ?? null}
           watcherCount={watcherCount}
           message={message}
         />

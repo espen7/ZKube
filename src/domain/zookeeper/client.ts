@@ -1,9 +1,13 @@
-import type { AclEntry, NodeSnapshot } from '../../shared/models/node'
+import type {
+  AclEntry,
+  NodeSnapshot,
+  TreeNodeRow,
+} from '../../shared/models/node'
 
 export interface ZooKeeperClient {
   connect(): Promise<void>
   close(): Promise<void>
-  getChildren(path: string): Promise<string[]>
+  getChildren(path: string): Promise<TreeNodeRow[]>
   getNode(path: string): Promise<NodeSnapshot>
   search(query: string): Promise<string[]>
   createNode(path: string, data: Buffer): Promise<void>

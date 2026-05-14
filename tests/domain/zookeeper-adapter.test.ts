@@ -182,6 +182,7 @@ describe('NodeZkClient', () => {
 
     await client.connect()
     const snapshot = await client.getNode('/config')
+    const children = await client.getChildren('/')
 
     expect(factory.calls).toEqual([
       {
@@ -209,6 +210,22 @@ describe('NodeZkClient', () => {
         },
       ],
     })
+    expect(children).toEqual([
+      {
+        path: '/app',
+        name: 'app',
+        hasChildren: true,
+        dataLength: 9,
+        mtime: null,
+      },
+      {
+        path: '/config',
+        name: 'config',
+        hasChildren: true,
+        dataLength: 12,
+        mtime: null,
+      },
+    ])
   })
 
   it('searches within the subtree listing returned by the underlying client', async () => {
@@ -269,6 +286,46 @@ describe('NodeZkClient', () => {
     await expect(client.deleteNode('/config', 3)).rejects.toMatchObject({
       code: 'BAD_VERSION',
     })
+  })
+
+  it('keeps tree rows visible when child metadata lookup fails', async () => {
+    const factory = makeFactory()
+    factory.client.getChildren = (_path, cb) => {
+      cb(null, ['healthy', 'broken'])
+    }
+    factory.client.getData = (path, cb) => {
+      if (path.endsWith('/broken')) {
+        cb(new Error('stat lookup failed'))
+        return
+      }
+
+      cb(null, Buffer.from(`data:${path}`), { version: 2, numChildren: 0 })
+    }
+    const client = new NodeZkClient(
+      {
+        hosts: 'zk-1:2181',
+      },
+      () => factory,
+    )
+
+    await client.connect()
+
+    await expect(client.getChildren('/')).resolves.toEqual([
+      {
+        path: '/healthy',
+        name: 'healthy',
+        hasChildren: false,
+        dataLength: 13,
+        mtime: null,
+      },
+      {
+        path: '/broken',
+        name: 'broken',
+        hasChildren: false,
+        dataLength: null,
+        mtime: null,
+      },
+    ])
   })
 
   it('rejects connect when the underlying client fails authentication', async () => {

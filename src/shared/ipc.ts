@@ -2,7 +2,12 @@ import type {
   ConnectionDraft,
   StoredConnection,
 } from './models/connection'
-import type { AclEntry, NodeSnapshot, RuntimeEvent } from './models/node'
+import type {
+  AclEntry,
+  NodeSnapshot,
+  RuntimeEvent,
+  TreeNodeRow,
+} from './models/node'
 import type {
   Preferences,
   Theme,
@@ -82,7 +87,7 @@ export type InvokeResponseMap = {
   [channels.preferencesSetTheme]: Preferences
   [channels.preferencesOpenSettings]: void
   [channels.zookeeperDisconnect]: void
-  [channels.zookeeperLoadChildren]: string[]
+  [channels.zookeeperLoadChildren]: TreeNodeRow[]
   [channels.zookeeperOpen]: NodeSnapshot
   [channels.zookeeperSearch]: string[]
   [channels.zookeeperCreate]: void

@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from 'react'
 
-import type { RuntimeEvent } from '../../../shared/models/node'
+import type { RuntimeEvent, TreeNodeRow } from '../../../shared/models/node'
 
 type TreeState = {
-  childrenByPath: Record<string, string[]>
+  rowsByPath: Record<string, TreeNodeRow[]>
   expandedPaths: string[]
   loadingPaths: string[]
   query: string
@@ -12,7 +12,7 @@ type TreeState = {
 }
 
 const initialState: TreeState = {
-  childrenByPath: {},
+  rowsByPath: {},
   expandedPaths: [],
   loadingPaths: [],
   query: '',
@@ -58,7 +58,7 @@ function getErrorMessage(error: unknown): string {
     return error.message
   }
 
-  return '节点操作失败，请稍后重试。'
+  return 'Tree action failed. Please try again.'
 }
 
 function isLoading(path: string) {
@@ -73,18 +73,6 @@ function setLoading(path: string, loading: boolean) {
   setState({ loadingPaths: nextLoadingPaths })
 }
 
-function joinChildPath(parentPath: string, childPath: string) {
-  if (!childPath || childPath === '/') {
-    return '/'
-  }
-
-  if (childPath.startsWith('/')) {
-    return childPath
-  }
-
-  return parentPath === '/' ? `/${childPath}` : `${parentPath}/${childPath}`
-}
-
 function isSameOrDescendantPath(candidatePath: string, targetPath: string) {
   if (targetPath === '/') {
     return candidatePath.startsWith('/')
@@ -94,6 +82,19 @@ function isSameOrDescendantPath(candidatePath: string, targetPath: string) {
     candidatePath === targetPath ||
     candidatePath.startsWith(`${targetPath}/`)
   )
+}
+
+function parentPath(path: string) {
+  if (path === '/') {
+    return '/'
+  }
+
+  const segments = path.split('/').filter(Boolean)
+  if (segments.length <= 1) {
+    return '/'
+  }
+
+  return `/${segments.slice(0, -1).join('/')}`
 }
 
 function cancelLoadsForPath(targetPath: string) {
@@ -125,8 +126,9 @@ function completeLoad(path: string, requestId: number) {
 function invalidateBranch(targetPath: string, options?: { removePath?: boolean }) {
   const removePath = options?.removePath ?? false
   cancelLoadsForPath(targetPath)
-  const nextChildrenByPath = Object.fromEntries(
-    Object.entries(state.childrenByPath)
+
+  const nextRowsByPath = Object.fromEntries(
+    Object.entries(state.rowsByPath)
       .filter(([path]) => {
         if (path === targetPath) {
           return !removePath
@@ -134,13 +136,11 @@ function invalidateBranch(targetPath: string, options?: { removePath?: boolean }
 
         return !isSameOrDescendantPath(path, targetPath)
       })
-      .map(([path, children]) => [
+      .map(([path, rows]) => [
         path,
         removePath
-          ? children.filter(
-              (childPath) => !isSameOrDescendantPath(childPath, targetPath),
-            )
-          : children,
+          ? rows.filter((row) => !isSameOrDescendantPath(row.path, targetPath))
+          : rows,
       ]),
   )
 
@@ -165,7 +165,7 @@ function invalidateBranch(targetPath: string, options?: { removePath?: boolean }
   })
 
   setState({
-    childrenByPath: nextChildrenByPath,
+    rowsByPath: nextRowsByPath,
     expandedPaths: nextExpandedPaths,
     loadingPaths: nextLoadingPaths,
     searchResults: nextSearchResults,
@@ -180,9 +180,7 @@ async function loadChildren(path: string) {
   const requestId = beginLoad(path)
 
   try {
-    const children = (await window.zkube.zookeeper.loadChildren(path)).map(
-      (childPath) => joinChildPath(path, childPath),
-    )
+    const rows = await window.zkube.zookeeper.loadChildren(path)
 
     if (!isCurrentLoad(path, requestId)) {
       return
@@ -190,9 +188,9 @@ async function loadChildren(path: string) {
 
     completeLoad(path, requestId)
     setState({
-      childrenByPath: {
-        ...state.childrenByPath,
-        [path]: children,
+      rowsByPath: {
+        ...state.rowsByPath,
+        [path]: rows,
       },
       feedback: null,
       loadingPaths: state.loadingPaths.filter((entry) => entry !== path),
@@ -228,7 +226,7 @@ async function toggleNode(path: string) {
     expandedPaths: [...state.expandedPaths, path],
   })
 
-  if (!state.childrenByPath[path]) {
+  if (!state.rowsByPath[path]) {
     await loadChildren(path)
   }
 }
@@ -249,7 +247,7 @@ async function runDeepSearch() {
     cancelPendingSearches()
     setState({
       searchResults: [],
-      feedback: query ? null : '请输入节点关键词。',
+      feedback: query ? null : 'Enter a node keyword to search.',
     })
     return
   }
@@ -287,17 +285,26 @@ async function createDemoNode() {
       new TextEncoder().encode('demo value'),
     )
 
-    const rootChildren = state.childrenByPath['/'] ?? []
-    const nextRootChildren = rootChildren.includes('/demo-node')
-      ? rootChildren
-      : [...rootChildren, '/demo-node']
+    const rootRows = state.rowsByPath['/'] ?? []
+    const nextRootRows = rootRows.some((row) => row.path === '/demo-node')
+      ? rootRows
+      : [
+          ...rootRows,
+          {
+            path: '/demo-node',
+            name: 'demo-node',
+            hasChildren: false,
+            dataLength: 'demo value'.length,
+            mtime: Date.now(),
+          },
+        ]
 
     setState({
-      childrenByPath: {
-        ...state.childrenByPath,
-        ...(state.childrenByPath['/'] ? { '/': nextRootChildren } : {}),
+      rowsByPath: {
+        ...state.rowsByPath,
+        ...(state.rowsByPath['/'] ? { '/': nextRootRows } : {}),
       },
-      feedback: '已创建演示节点 /demo-node',
+      feedback: 'Created demo node /demo-node',
     })
   } catch (error) {
     setState({ feedback: getErrorMessage(error) })
@@ -314,7 +321,7 @@ async function deleteDemoNode() {
     invalidateBranch('/demo-node', { removePath: true })
 
     setState({
-      feedback: '已删除演示节点 /demo-node',
+      feedback: 'Deleted demo node /demo-node',
     })
   } catch (error) {
     setState({ feedback: getErrorMessage(error) })
@@ -336,7 +343,7 @@ export function resetTreeStore() {
 async function refreshBranch(path: string) {
   const shouldReload =
     path === '/' ||
-    path in state.childrenByPath ||
+    path in state.rowsByPath ||
     state.expandedPaths.includes(path) ||
     state.loadingPaths.includes(path)
 
@@ -369,6 +376,7 @@ async function handleRuntimeEvent(event: RuntimeEvent) {
       invalidateBranch(event.path, { removePath: true })
       return
     case 'nodeDataChanged':
+      await refreshBranch(parentPath(event.path))
       return
   }
 }

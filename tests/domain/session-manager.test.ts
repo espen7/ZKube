@@ -11,12 +11,60 @@ import {
   type InvokeResponseMap,
 } from '../../src/shared/ipc'
 import type { RuntimeEvent } from '../../src/shared/models/node'
+import type { TreeNodeRow } from '../../src/shared/models/node'
 
 class FakeClient {
-  children = new Map<string, string[]>([
-    ['/', ['app', 'config', 'a']],
-    ['/a', ['b']],
-    ['/a/b', ['stale-leaf']],
+  children = new Map<string, TreeNodeRow[]>([
+    [
+      '/',
+      [
+        {
+          path: '/app',
+          name: 'app',
+          hasChildren: false,
+          dataLength: 10,
+          mtime: 1_700_000_000_000,
+        },
+        {
+          path: '/config',
+          name: 'config',
+          hasChildren: false,
+          dataLength: 20,
+          mtime: 1_700_000_100_000,
+        },
+        {
+          path: '/a',
+          name: 'a',
+          hasChildren: true,
+          dataLength: 0,
+          mtime: 1_700_000_200_000,
+        },
+      ],
+    ],
+    [
+      '/a',
+      [
+        {
+          path: '/a/b',
+          name: 'b',
+          hasChildren: true,
+          dataLength: 11,
+          mtime: 1_700_000_300_000,
+        },
+      ],
+    ],
+    [
+      '/a/b',
+      [
+        {
+          path: '/a/b/stale-leaf',
+          name: 'stale-leaf',
+          hasChildren: false,
+          dataLength: 12,
+          mtime: 1_700_000_400_000,
+        },
+      ],
+    ],
   ])
   getChildrenCalls = new Map<string, number>()
   searchResults = ['/app', '/config']
@@ -80,7 +128,7 @@ describe('SessionManager', () => {
     const first = await manager.loadChildren('/')
     const second = await manager.loadChildren('/')
 
-    expect(first).toEqual(['app', 'config', 'a'])
+    expect(first).toEqual(client.children.get('/'))
     expect(second).toEqual(first)
     expect(client.getChildrenCalls.get('/')).toBe(1)
   })
@@ -168,11 +216,29 @@ describe('SessionManager', () => {
     client.children.delete('/a/b')
     await manager.delete('/a')
 
-    client.children.set('/a', ['fresh-child'])
-    client.children.set('/a/b', ['fresh-leaf'])
+    client.children.set('/a', [
+      {
+        path: '/a/fresh-child',
+        name: 'fresh-child',
+        hasChildren: false,
+        dataLength: 13,
+        mtime: 1_700_000_500_000,
+      },
+    ])
+    client.children.set('/a/b', [
+      {
+        path: '/a/b/fresh-leaf',
+        name: 'fresh-leaf',
+        hasChildren: false,
+        dataLength: 14,
+        mtime: 1_700_000_600_000,
+      },
+    ])
 
-    await expect(manager.loadChildren('/a')).resolves.toEqual(['fresh-child'])
-    await expect(manager.loadChildren('/a/b')).resolves.toEqual(['fresh-leaf'])
+    await expect(manager.loadChildren('/a')).resolves.toEqual(client.children.get('/a'))
+    await expect(manager.loadChildren('/a/b')).resolves.toEqual(
+      client.children.get('/a/b'),
+    )
     expect(client.getChildrenCalls.get('/a')).toBe(2)
     expect(client.getChildrenCalls.get('/a/b')).toBe(2)
   })

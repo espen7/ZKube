@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../../src/renderer/App'
 import { resetConnectionsStore } from '../../src/renderer/features/connections/useConnectionsStore'
 import { resetWorkbenchStore } from '../../src/renderer/stores/useWorkbenchStore'
+import type { TreeNodeRow } from '../../src/shared/models/node'
 
 describe('connected session root loading', () => {
   const originalZkube = window.zkube
@@ -15,15 +16,32 @@ describe('connected session root loading', () => {
     }) => void
   >()
   let loadChildrenMock: ReturnType<
-    typeof vi.fn<(path: string) => Promise<string[]>>
+    typeof vi.fn<(path: string) => Promise<TreeNodeRow[]>>
   >
+
+  const rootRows: TreeNodeRow[] = [
+    {
+      path: '/configs',
+      name: 'configs',
+      hasChildren: false,
+      dataLength: 12,
+      mtime: Date.now() - 5_000,
+    },
+    {
+      path: '/services',
+      name: 'services',
+      hasChildren: true,
+      dataLength: 24,
+      mtime: Date.now() - 9_000,
+    },
+  ]
 
   beforeEach(() => {
     loadChildrenMock = vi
-      .fn<(path: string) => Promise<string[]>>()
+      .fn<(path: string) => Promise<TreeNodeRow[]>>()
       .mockImplementation(async (path: string) => {
         if (path === '/') {
-          return ['configs', 'services']
+          return rootRows
         }
 
         return []
@@ -92,7 +110,7 @@ describe('connected session root loading', () => {
     await waitFor(() => {
       expect(loadChildrenMock).toHaveBeenCalledWith('/')
     })
-    expect(await screen.findByText('/configs')).toBeInTheDocument()
-    expect(screen.getByText('/services')).toBeInTheDocument()
+    expect(await screen.findByText('configs')).toBeInTheDocument()
+    expect(screen.getByText('services')).toBeInTheDocument()
   })
 })

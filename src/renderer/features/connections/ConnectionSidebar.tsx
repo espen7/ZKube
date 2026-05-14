@@ -140,7 +140,7 @@ export function ConnectionSidebar() {
                     {isHealthy ? (
                       <button
                         aria-label={`disconnect connection ${item.name}`}
-                        className="button-primary"
+                        className="button-danger"
                         type="button"
                         onClick={() => void disconnect()}
                       >

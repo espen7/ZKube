@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@monaco-editor/react', () => ({
@@ -86,5 +86,20 @@ describe('navigation workspace layout', () => {
     expect(screen.getByLabelText('Saved connections list')).toBeInTheDocument()
     expect(screen.getByLabelText('Tree content region')).toBeInTheDocument()
     expect(screen.getByLabelText('Inspector content')).toBeInTheDocument()
+  })
+
+  it('exposes a draggable divider between the tree workspace and node workbench', () => {
+    render(<App />)
+
+    const appShell = screen.getByLabelText('ZKube app shell')
+    const divider = screen.getByRole('separator', { name: /resize tree and workbench/i })
+
+    expect(appShell.style.getPropertyValue('--navigation-width')).toBe('860px')
+
+    fireEvent.mouseDown(divider, { clientX: 860 })
+    fireEvent.mouseMove(window, { clientX: 980 })
+    fireEvent.mouseUp(window)
+
+    expect(appShell.style.getPropertyValue('--navigation-width')).toBe('980px')
   })
 })
