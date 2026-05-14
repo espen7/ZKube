@@ -2,7 +2,7 @@ appId: com.zkube.desktop
 productName: ZKube
 electronDist: node_modules/electron/dist
 directories:
-  output: release
+  output: ../ZKube-release
 files:
   - dist/**
   - dist-electron/**

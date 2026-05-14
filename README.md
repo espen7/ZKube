@@ -1,7 +1,7 @@
 # ZKube
 
 <p align="center">
-  <strong>A Windows-first desktop workbench for Apache ZooKeeper.</strong>
+  <strong>A modern desktop workbench for Apache ZooKeeper.</strong>
 </p>
 
 <p align="center">
@@ -24,7 +24,7 @@
 
 ## Overview
 
-ZKube is a desktop GUI for Apache ZooKeeper focused on the workflows engineers perform every day:
+ZKube is a desktop GUI for `Apache ZooKeeper` focused on the workflows engineers perform every day:
 
 - switching between multiple ZooKeeper clusters
 - browsing large node trees without loading everything at once
@@ -32,7 +32,6 @@ ZKube is a desktop GUI for Apache ZooKeeper focused on the workflows engineers p
 - reviewing metadata and ACLs in a single workspace
 - marking important nodes locally for faster navigation
 
-The project is currently optimized for **Windows desktop usage** and aims to provide a cleaner, more focused experience than traditional generic ZooKeeper tools.
 
 ## Why ZKube
 
@@ -98,7 +97,7 @@ ZKube is usable today for core read/write ZooKeeper workflows, but the current r
 
 ### Implemented
 
-- Windows-first Electron desktop app
+- Electron desktop app, currently released with Windows-first priority
 - Direct ZooKeeper connection profiles
 - Tree browsing, filtering, search, manual refresh
 - Node create / delete / edit flows
@@ -112,7 +111,7 @@ ZKube is usable today for core read/write ZooKeeper workflows, but the current r
 - Rich diff / history restore flows
 - Full ACL authoring beyond the current scoped editor
 - Background watch-driven live sync for every expanded path
-- Multi-platform packaging polish beyond the current Windows-first target
+- Finalized multi-platform packaging and release polish for macOS and Linux
 
 ## Tech Stack
 
@@ -132,7 +131,7 @@ ZKube is usable today for core read/write ZooKeeper workflows, but the current r
 
 - Node.js 20 or newer
 - npm
-- Windows environment recommended for local packaging and runtime parity
+- Windows is currently the most direct environment for packaging and runtime parity
 
 ### Install
 
@@ -196,7 +195,7 @@ Build outputs are generated under:
 
 - `dist/`
 - `dist-electron/`
-- `release/`
+- `../ZKube-release/`
 
 ## Working with Real ZooKeeper Clusters
 
@@ -234,7 +233,7 @@ Planned follow-up areas include:
 - broader ACL support
 - stronger connection validation and import safeguards
 - richer node comparison and recovery workflows
-- additional platform support after the Windows-first experience is hardened
+- macOS and Linux releases after the Windows-first experience is further hardened
 
 ## Contributing
 
