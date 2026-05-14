@@ -2,6 +2,25 @@
   "name": "zkube",
   "private": true,
   "version": "0.1.0",
+  "description": "A polished desktop workspace for Apache ZooKeeper, designed for clear navigation, safe editing, and operational focus.",
+  "author": "ZKube contributors",
+  "homepage": "https://github.com/espen7/ZKube",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/espen7/ZKube.git"
+  },
+  "bugs": {
+    "url": "https://github.com/espen7/ZKube/issues"
+  },
+  "keywords": [
+    "apache-zookeeper",
+    "zookeeper",
+    "electron",
+    "react",
+    "desktop",
+    "monaco",
+    "ops"
+  ],
   "license": "MIT",
   "type": "module",
   "main": "dist-electron/main/index.cjs",
