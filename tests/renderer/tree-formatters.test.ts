@@ -9,6 +9,7 @@ describe('tree formatters', () => {
   it('falls back to dashes for invalid relative time values', () => {
     expect(formatRelativeTime(null, 1_700_000_000_000)).toBe('--')
     expect(formatRelativeTime(undefined, 1_700_000_000_000)).toBe('--')
+    expect(formatRelativeTime(0, 1_700_000_000_000)).toBe('--')
     expect(
       formatRelativeTime(Number.NaN as unknown as number, 1_700_000_000_000),
     ).toBe('--')

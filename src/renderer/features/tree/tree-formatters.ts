@@ -20,6 +20,7 @@ export function formatRelativeTime(
 ): string {
   if (
     typeof value !== 'number' ||
+    value <= 0 ||
     !Number.isFinite(value) ||
     !Number.isFinite(now)
   ) {

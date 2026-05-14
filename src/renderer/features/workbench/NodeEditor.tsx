@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 import Editor, { type Monaco } from '@monaco-editor/react'
 
 import { useI18n } from '../../use-i18n'
@@ -75,6 +77,43 @@ export function NodeEditor({
 }: NodeEditorProps) {
   const { theme, fontSizePx } = useThemeStore()
   const { t } = useI18n()
+  const [monacoReady, setMonacoReady] = useState(import.meta.env.MODE === 'test')
+  const [monacoError, setMonacoError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (import.meta.env.MODE === 'test') {
+      return
+    }
+
+    let cancelled = false
+
+    void import('./configure-monaco')
+      .then(({ configureMonaco }) => configureMonaco())
+      .then(() => {
+        if (cancelled) {
+          return
+        }
+
+        setMonacoReady(true)
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return
+        }
+
+        setMonacoError(
+          error instanceof Error
+            ? error.message
+            : 'Failed to initialize the editor runtime.',
+        )
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const showLoading = isLoading || !monacoReady
 
   return (
     <section className="workspace-card workspace-card--editor" aria-label="Node data pane">
@@ -87,35 +126,44 @@ export function NodeEditor({
       <div className="panel__body node-editor__body" data-testid="node-editor-body">
         <div className="node-editor__label">{t('editor.placeholder')}</div>
         <div className="node-editor__surface">
-          <Editor
-            beforeMount={ensureEditorThemes}
-            height="100%"
-            language={getLanguage(value)}
-            options={{
-              automaticLayout: true,
-              fontSize: fontSizePx,
-              minimap: { enabled: false },
-              readOnly: isLoading,
-              scrollBeyondLastLine: false,
-              wordWrap: 'on',
-            }}
-            theme={theme === 'light' ? 'vs' : 'zkube-monokai'}
-            value={value}
-            onChange={(nextValue) => onChange(nextValue ?? '')}
-          />
+          {monacoReady ? (
+            <Editor
+              beforeMount={ensureEditorThemes}
+              height="100%"
+              language={getLanguage(value)}
+              options={{
+                automaticLayout: true,
+                fontSize: fontSizePx,
+                minimap: { enabled: false },
+                readOnly: showLoading,
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+              }}
+              theme={theme === 'light' ? 'vs' : 'zkube-monokai'}
+              value={value}
+              onChange={(nextValue) => onChange(nextValue ?? '')}
+            />
+          ) : (
+            <div className="placeholder-row">{t('editor.loading')}</div>
+          )}
         </div>
         <div className="node-editor__actions" data-testid="node-editor-actions">
-          <button type="button" onClick={onFormatJson} disabled={isLoading}>
+          <button type="button" onClick={onFormatJson} disabled={showLoading}>
             {t('editor.formatJson')}
           </button>
-          <button type="button" onClick={onFormatXml} disabled={isLoading}>
+          <button type="button" onClick={onFormatXml} disabled={showLoading}>
             {t('editor.formatXml')}
           </button>
-          <button type="button" onClick={onSave} disabled={isLoading || isSaving}>
+          <button type="button" onClick={onSave} disabled={showLoading || isSaving}>
             {isSaving ? t('editor.saving') : t('editor.save')}
           </button>
         </div>
-        {isLoading ? <p>{t('editor.loading')}</p> : null}
+        {showLoading ? <p>{t('editor.loading')}</p> : null}
+        {monacoError ? (
+          <p className="node-editor__alert" role="alert">
+            {monacoError}
+          </p>
+        ) : null}
         {error ? (
           <p
             className={

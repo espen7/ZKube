@@ -18,7 +18,7 @@ type ConnectionConfig = {
 type NodeZkStat = {
   version: number
   numChildren: number
-  mtime?: number | null
+  mtime?: number | null | Buffer | Uint8Array
   dataLength?: number | null
 }
 
@@ -310,7 +310,7 @@ export class NodeZkClient implements ZooKeeperClient {
           stat: {
             version: stat?.version ?? 0,
             numChildren: stat?.numChildren ?? 0,
-            mtime: stat?.mtime ?? null,
+            mtime: normalizeStatTimestamp(stat?.mtime),
             dataLength: stat?.dataLength ?? (data?.length ?? 0),
           },
         })
@@ -564,4 +564,24 @@ function createAppError(
   }
   appError.code = code
   return appError
+}
+
+function normalizeStatTimestamp(
+  value: number | null | undefined | Buffer | Uint8Array,
+): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null
+  }
+
+  if (!value) {
+    return null
+  }
+
+  const buffer = Buffer.isBuffer(value) ? value : Buffer.from(value)
+  if (buffer.length < 8) {
+    return null
+  }
+
+  const decoded = Number(buffer.readBigInt64BE(0))
+  return Number.isFinite(decoded) ? decoded : null
 }

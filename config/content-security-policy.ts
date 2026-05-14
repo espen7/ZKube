@@ -12,7 +12,6 @@ export function createContentSecurityPolicy(
     joinDirective('default-src', ["'self'"]),
     joinDirective('base-uri', ["'self'"]),
     joinDirective('object-src', ["'none'"]),
-    joinDirective('frame-ancestors', ["'none'"]),
     joinDirective('worker-src', ["'self'", 'blob:']),
     joinDirective('child-src', ["'self'", 'blob:']),
   ]

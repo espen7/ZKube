@@ -8,6 +8,7 @@ describe('content security policy', () => {
 
     expect(csp).toContain("script-src 'self' 'unsafe-inline' http://localhost:4173")
     expect(csp).toContain("connect-src 'self' http://localhost:4173 ws://localhost:4173")
+    expect(csp).not.toContain('frame-ancestors')
     expect(csp).not.toContain('unsafe-eval')
   })
 
@@ -17,6 +18,7 @@ describe('content security policy', () => {
     expect(csp).toContain("script-src 'self'")
     expect(csp).toContain("style-src 'self' 'unsafe-inline'")
     expect(csp).toContain("connect-src 'self'")
+    expect(csp).not.toContain('frame-ancestors')
     expect(csp).not.toContain('localhost')
     expect(csp).not.toContain('unsafe-eval')
   })

@@ -24,7 +24,7 @@ type FakeNodeClient = {
       stat?: {
         version: number
         numChildren: number
-        mtime?: number
+        mtime?: number | Buffer
         dataLength?: number
       },
     ) => void,
@@ -78,6 +78,8 @@ type FactoryResult = {
 
 function makeFactory(): FactoryResult {
   const handlers = new Map<string, () => void>()
+  const encodedTimestamp = Buffer.alloc(8)
+  encodedTimestamp.writeBigInt64BE(BigInt(1_700_000_800_000))
 
   const client: FakeNodeClient = {
     once(event, cb) {
@@ -103,7 +105,7 @@ function makeFactory(): FactoryResult {
       cb(null, Buffer.from(`data:${path}`), {
         version: 7,
         numChildren: 2,
-        mtime: 1_700_000_800_000,
+        mtime: encodedTimestamp,
         dataLength: `data:${path}`.length,
       })
     },
