@@ -6,7 +6,9 @@ directories:
 files:
   - dist/**
   - dist-electron/**
+  - build/icon.ico
 win:
+  icon: build/icon.ico
   target:
     - nsis
 nsis:

@@ -107,6 +107,8 @@ describe('theme settings', () => {
           stat: {
             version: 1,
             numChildren: 0,
+            mtime: 1_715_000_000_000,
+            dataLength: 16,
           },
           acl: [],
         }),

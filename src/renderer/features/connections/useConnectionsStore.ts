@@ -14,21 +14,29 @@ import { getPreferencesSnapshot } from '../settings/useThemeStore'
 type ConnectionsState = {
   items: StoredConnection[]
   dialogOpen: boolean
+  editingConnection: StoredConnection | null
   dialogError: string | null
   feedback: string | null
   submitting: boolean
   activeConnectionId: string | null
   connectionState: ConnectionState
+  sessionEstablished: boolean
+  disconnectRequested: boolean
+  disconnectNoticeOpen: boolean
 }
 
 const initialState: ConnectionsState = {
   items: [],
   dialogOpen: false,
+  editingConnection: null,
   dialogError: null,
   feedback: null,
   submitting: false,
   activeConnectionId: null,
   connectionState: 'disconnected',
+  sessionEstablished: false,
+  disconnectRequested: false,
+  disconnectNoticeOpen: false,
 }
 
 const listeners = new Set<() => void>()
@@ -116,6 +124,8 @@ async function connect(connectionId: string) {
       previousActiveConnectionId && previousActiveConnectionId !== connectionId
         ? 'reconnecting'
         : 'connecting',
+    disconnectRequested: false,
+    disconnectNoticeOpen: false,
     feedback: null,
   })
 
@@ -127,6 +137,7 @@ async function connect(connectionId: string) {
       connectionState: previousActiveConnectionId
         ? previousConnectionState
         : 'disconnected',
+      disconnectRequested: false,
       feedback: getErrorMessage(error),
     })
   }
@@ -138,10 +149,14 @@ async function disconnect() {
   }
 
   try {
+    setState({ disconnectRequested: true })
     await window.zkube.zookeeper.disconnect()
     setState({ feedback: null })
   } catch (error) {
-    setState({ feedback: getErrorMessage(error) })
+    setState({
+      disconnectRequested: false,
+      feedback: getErrorMessage(error),
+    })
   }
 }
 
@@ -192,6 +207,20 @@ async function exportToFile() {
 function openCreateDialog() {
   setState({
     dialogOpen: true,
+    editingConnection: null,
+    dialogError: null,
+  })
+}
+
+function openEditDialog(connectionId: string) {
+  const connection = state.items.find((item) => item.id === connectionId) ?? null
+  if (!connection) {
+    return
+  }
+
+  setState({
+    dialogOpen: true,
+    editingConnection: connection,
     dialogError: null,
   })
 }
@@ -199,9 +228,14 @@ function openCreateDialog() {
 function closeDialog() {
   setState({
     dialogOpen: false,
+    editingConnection: null,
     dialogError: null,
     submitting: false,
   })
+}
+
+function dismissDisconnectNotice() {
+  setState({ disconnectNoticeOpen: false })
 }
 
 async function saveConnection(input: {
@@ -213,11 +247,13 @@ async function saveConnection(input: {
     return
   }
 
+  const editingConnection = state.editingConnection
   const draft: ConnectionDraft = {
-    id: createConnectionId(input.name),
+    id: editingConnection?.id ?? createConnectionId(input.name),
     name: input.name.trim(),
     hosts: input.hosts.trim(),
     chroot: input.chroot?.trim() || undefined,
+    sessionTimeoutMs: editingConnection?.sessionTimeoutMs,
   }
 
   if (!draft.name || !draft.hosts) {
@@ -237,8 +273,11 @@ async function saveConnection(input: {
     setState({
       items: upsertConnection(state.items, saved),
       dialogOpen: false,
+      editingConnection: null,
       dialogError: null,
-      feedback: t('connection.saved'),
+      feedback: editingConnection
+        ? t('connection.updatedSaved')
+        : t('connection.saved'),
       submitting: false,
     })
   } catch (error) {
@@ -279,13 +318,29 @@ function handleRuntimeEvent(event: RuntimeEvent) {
       setState({
         activeConnectionId: null,
         connectionState: 'disconnected',
+        sessionEstablished: false,
+        disconnectNoticeOpen:
+          state.sessionEstablished && !state.disconnectRequested,
+        disconnectRequested: false,
+        feedback:
+          state.sessionEstablished && !state.disconnectRequested
+            ? t('connection.lost')
+            : state.feedback,
+      })
+      return
+    case 'connected':
+      setState({
+        connectionState: 'connected',
+        sessionEstablished: true,
+        disconnectRequested: false,
+        feedback: null,
       })
       return
     case 'connecting':
-    case 'connected':
     case 'reconnecting':
       setState({
         connectionState: event.state,
+        disconnectNoticeOpen: false,
         feedback: null,
       })
   }
@@ -308,7 +363,9 @@ export function useConnectionsStore() {
     exportToFile,
     deleteConnection,
     openCreateDialog,
+    openEditDialog,
     closeDialog,
+    dismissDisconnectNotice,
     saveConnection,
     handleRuntimeEvent,
   }

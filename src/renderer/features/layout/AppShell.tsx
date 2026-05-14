@@ -8,18 +8,55 @@ import { StatusBar } from '../runtime/StatusBar'
 import { useRuntimeEvents } from '../runtime/useRuntimeEvents'
 import { TreePanel } from '../tree/TreePanel'
 import { NodeWorkbench } from '../workbench/NodeWorkbench'
-import { useI18n } from '../../use-i18n'
 import { useConnectionsStore } from '../connections/useConnectionsStore'
+import { useI18n } from '../../use-i18n'
 
 const DEFAULT_NAVIGATION_WIDTH = 860
 const MIN_NAVIGATION_WIDTH = 700
 const MAX_NAVIGATION_WIDTH = 1180
+const COMPACT_MIN_NAVIGATION_WIDTH = 560
+const DESKTOP_STACK_BREAKPOINT = 1100
+const WIDE_LAYOUT_BREAKPOINT = 1500
+const WORKSPACE_MIN_WIDTH = 420
+const RESIZER_WIDTH = 12
+const GRID_GAP = 12
+const APP_SHELL_HORIZONTAL_PADDING = 24
+
+function getSafeNavigationWidth(width: number, viewportWidth: number) {
+  if (viewportWidth <= DESKTOP_STACK_BREAKPOINT) {
+    return Math.min(MAX_NAVIGATION_WIDTH, Math.max(MIN_NAVIGATION_WIDTH, width))
+  }
+
+  const reservedWidth =
+    WORKSPACE_MIN_WIDTH +
+    RESIZER_WIDTH +
+    APP_SHELL_HORIZONTAL_PADDING +
+    GRID_GAP * 2
+  const maxWidth = Math.min(MAX_NAVIGATION_WIDTH, viewportWidth - reservedWidth)
+  const minimumWidth =
+    viewportWidth <= WIDE_LAYOUT_BREAKPOINT
+      ? COMPACT_MIN_NAVIGATION_WIDTH
+      : MIN_NAVIGATION_WIDTH
+
+  if (maxWidth <= minimumWidth) {
+    return Math.max(0, maxWidth)
+  }
+
+  return Math.min(maxWidth, Math.max(minimumWidth, width))
+}
 
 export function AppShell() {
-  const { connectionState, watcherCount, message } = useRuntimeEvents()
-  const { activeConnectionId, items } = useConnectionsStore()
   const { t } = useI18n()
-  const [navigationWidth, setNavigationWidth] = useState(DEFAULT_NAVIGATION_WIDTH)
+  const { connectionState, watcherCount, message } = useRuntimeEvents()
+  const {
+    activeConnectionId,
+    items,
+    disconnectNoticeOpen,
+    dismissDisconnectNotice,
+  } = useConnectionsStore()
+  const [navigationWidth, setNavigationWidth] = useState(() =>
+    getSafeNavigationWidth(DEFAULT_NAVIGATION_WIDTH, window.innerWidth),
+  )
   const dragOffsetRef = useRef<number | null>(null)
   const activeConnection =
     items.find((item) => item.id === activeConnectionId) ?? null
@@ -30,9 +67,9 @@ export function AppShell() {
         return
       }
 
-      const nextWidth = Math.min(
-        MAX_NAVIGATION_WIDTH,
-        Math.max(MIN_NAVIGATION_WIDTH, event.clientX - dragOffsetRef.current),
+      const nextWidth = getSafeNavigationWidth(
+        event.clientX - dragOffsetRef.current,
+        window.innerWidth,
       )
       setNavigationWidth(nextWidth)
     }
@@ -52,6 +89,15 @@ export function AppShell() {
     }
   }, [])
 
+  useEffect(() => {
+    const handleResize = () => {
+      setNavigationWidth((width) => getSafeNavigationWidth(width, window.innerWidth))
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const startDragging = (clientX: number) => {
     dragOffsetRef.current = clientX - navigationWidth
     document.body.style.cursor = 'col-resize'
@@ -64,14 +110,6 @@ export function AppShell() {
       className="app-shell"
       style={{ '--navigation-width': `${navigationWidth}px` } as CSSProperties}
     >
-      <header className="app-shell__header">
-        <div className="app-shell__brand">
-          <h1>ZKube</h1>
-          <p>{t('app.subtitle')}</p>
-        </div>
-        <div className="muted">{t('app.headerHint')}</div>
-      </header>
-
       <section aria-label="Navigation workspace" className="navigation-workspace">
         <NavigationToolRail />
         <ConnectionSidebar />
@@ -87,10 +125,14 @@ export function AppShell() {
         onMouseDown={(event) => startDragging(event.clientX)}
         onKeyDown={(event) => {
           if (event.key === 'ArrowLeft') {
-            setNavigationWidth((width) => Math.max(MIN_NAVIGATION_WIDTH, width - 24))
+            setNavigationWidth((width) =>
+              getSafeNavigationWidth(width - 24, window.innerWidth),
+            )
           }
           if (event.key === 'ArrowRight') {
-            setNavigationWidth((width) => Math.min(MAX_NAVIGATION_WIDTH, width + 24))
+            setNavigationWidth((width) =>
+              getSafeNavigationWidth(width + 24, window.innerWidth),
+            )
           }
         }}
       />
@@ -98,20 +140,6 @@ export function AppShell() {
       <main className="workspace">
         <NodeWorkbench />
       </main>
-
-      <aside className="panel inspector" aria-label="Inspector sidebar">
-        <div className="panel__header">
-          <div>
-            <div className="panel__eyebrow">{t('panel.inspector')}</div>
-            <h2 className="panel__title">{t('panel.contextPlaceholder')}</h2>
-          </div>
-        </div>
-        <div aria-label="Inspector content" className="panel__body panel__body--scroll">
-          <div className="placeholder-row">{t('panel.connectionDetails')}</div>
-          <div className="placeholder-row">{t('panel.recentActions')}</div>
-          <div className="placeholder-row">{t('panel.runtimeFeedback')}</div>
-        </div>
-      </aside>
 
       <footer className="app-shell__footer">
         <StatusBar
@@ -124,6 +152,25 @@ export function AppShell() {
       </footer>
 
       <ConnectionDialog />
+
+      {disconnectNoticeOpen ? (
+        <div className="dialog-backdrop dialog-backdrop--overlay">
+          <div
+            aria-label={t('dialog.connectionLost')}
+            aria-modal="true"
+            className="dialog"
+            role="dialog"
+          >
+            <h3>{t('dialog.connectionLost')}</h3>
+            <p>{t('connection.lostDescription')}</p>
+            <div className="dialog__actions">
+              <button className="button-primary" type="button" onClick={dismissDisconnectNotice}>
+                {t('dialog.ok')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

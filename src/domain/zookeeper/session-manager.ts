@@ -10,12 +10,19 @@ export class SessionManager {
   private client: ZooKeeperClient | null = null
   private childrenCache = new Map<string, TreeNodeRow[]>()
   private listeners = new Set<(event: RuntimeEvent) => void>()
+  private stopConnectionLossWatch: (() => void) | null = null
+  private disconnecting = false
 
   constructor(private readonly createClient: () => ZooKeeperClient) {}
 
   async connect(_connectionId: string): Promise<void> {
+    this.disconnecting = false
     this.client = this.createClient()
     await this.client.connect()
+    this.stopConnectionLossWatch?.()
+    this.stopConnectionLossWatch = this.client.watchConnectionLoss(() => {
+      this.handleConnectionLoss()
+    })
     this.emit({ type: 'connectionStateChanged', state: 'connected' })
   }
 
@@ -24,10 +31,19 @@ export class SessionManager {
       return
     }
 
-    await this.client.close()
-    this.client = null
-    this.childrenCache.clear()
-    this.emit({ type: 'connectionStateChanged', state: 'disconnected' })
+    this.disconnecting = true
+    const currentClient = this.client
+    this.stopConnectionLossWatch?.()
+    this.stopConnectionLossWatch = null
+
+    try {
+      await currentClient.close()
+    } finally {
+      this.client = null
+      this.childrenCache.clear()
+      this.disconnecting = false
+      this.emit({ type: 'connectionStateChanged', state: 'disconnected' })
+    }
   }
 
   async loadChildren(path: string): Promise<TreeNodeRow[]> {
@@ -55,9 +71,12 @@ export class SessionManager {
     this.emit({ type: 'nodeChildrenChanged', path: parent })
   }
 
-  async delete(path: string, version?: number): Promise<void> {
+  async delete(
+    path: string,
+    options?: { version?: number; recursive?: boolean },
+  ): Promise<void> {
     const parent = parentPath(path)
-    await this.requireClient().deleteNode(path, version)
+    await this.requireClient().deleteNode(path, options)
     this.invalidateDeletedPath(path)
     this.childrenCache.delete(parent)
     this.emit({ type: 'nodeDeleted', path })
@@ -103,6 +122,20 @@ export class SessionManager {
     }
 
     return this.client
+  }
+
+  private handleConnectionLoss(): void {
+    if (!this.client || this.disconnecting) {
+      return
+    }
+
+    const currentClient = this.client
+    this.client = null
+    this.childrenCache.clear()
+    this.stopConnectionLossWatch?.()
+    this.stopConnectionLossWatch = null
+    void currentClient.close().catch(() => {})
+    this.emit({ type: 'connectionStateChanged', state: 'disconnected' })
   }
 }
 

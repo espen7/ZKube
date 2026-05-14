@@ -38,7 +38,29 @@ describe('Tree panel', () => {
     typeof vi.fn<(path: string, data: Uint8Array) => Promise<void>>
   >
   let deleteMock: ReturnType<
-    typeof vi.fn<(path: string, version?: number) => Promise<void>>
+    typeof vi.fn<
+      (
+        path: string,
+        options?: { version?: number; recursive?: boolean },
+      ) => Promise<void>
+    >
+  >
+  let nodeMarksListMock: ReturnType<
+    typeof vi.fn<(connectionId: string) => Promise<Record<string, 'red' | 'orange' | 'yellow' | 'green'>>>
+  >
+  let nodeMarksSetMock: ReturnType<
+    typeof vi.fn<
+      (
+        connectionId: string,
+        path: string,
+        color: 'red' | 'orange' | 'yellow' | 'green',
+      ) => Promise<void>
+    >
+  >
+  let nodeMarksClearMock: ReturnType<
+    typeof vi.fn<
+      (connectionId: string, path: string, recursive?: boolean) => Promise<void>
+    >
   >
   let openMock: ReturnType<
     typeof vi.fn<
@@ -48,6 +70,8 @@ describe('Tree panel', () => {
         stat: {
           version: number
           numChildren: number
+          mtime: number | null
+          dataLength: number | null
         }
         acl: []
       }>
@@ -85,14 +109,24 @@ describe('Tree panel', () => {
       .fn<(path: string, data: Uint8Array) => Promise<void>>()
       .mockResolvedValue(undefined)
     deleteMock = vi
-      .fn<(path: string, version?: number) => Promise<void>>()
+      .fn<
+        (
+          path: string,
+          options?: { version?: number; recursive?: boolean },
+        ) => Promise<void>
+      >()
       .mockResolvedValue(undefined)
+    nodeMarksListMock = vi.fn().mockResolvedValue({})
+    nodeMarksSetMock = vi.fn().mockResolvedValue(undefined)
+    nodeMarksClearMock = vi.fn().mockResolvedValue(undefined)
     openMock = vi.fn<(path: string) => Promise<{
       path: string
       data: Uint8Array
       stat: {
         version: number
         numChildren: number
+        mtime: number | null
+        dataLength: number | null
       }
       acl: []
     }>>().mockImplementation(async (path: string) => ({
@@ -101,6 +135,8 @@ describe('Tree panel', () => {
       stat: {
         version: 1,
         numChildren: 0,
+        mtime: Date.now() - 30_000,
+        dataLength: `opened:${path}`.length,
       },
       acl: [],
     }))
@@ -111,11 +147,19 @@ describe('Tree panel', () => {
         ping: vi.fn(),
       },
       connections: {
-        list: vi.fn().mockResolvedValue([]),
+        list: vi.fn().mockResolvedValue([
+          {
+            id: 'readonly',
+            name: 'Readonly',
+            hosts: '192.168.171.15:2181',
+            createdAt: '2026-05-13T00:00:00.000Z',
+            updatedAt: '2026-05-13T00:00:00.000Z',
+          },
+        ]),
         save: vi.fn(),
         exportAll: vi.fn(),
         importJson: vi.fn(),
-        connect: vi.fn(),
+        connect: vi.fn().mockResolvedValue(undefined),
       },
       preferences: {
         getTheme: vi.fn().mockResolvedValue({
@@ -130,6 +174,11 @@ describe('Tree panel', () => {
         }),
         openSettingsWindow: vi.fn().mockResolvedValue(undefined),
         subscribeTheme: vi.fn(() => vi.fn()),
+      },
+      nodeMarks: {
+        list: nodeMarksListMock,
+        set: nodeMarksSetMock,
+        clear: nodeMarksClearMock,
       },
       zookeeper: {
         disconnect: vi.fn(),
@@ -234,7 +283,7 @@ describe('Tree panel', () => {
     expect(await screen.findByText('api')).toBeInTheDocument()
   })
 
-  it('runs deep search and exposes create/delete entry points', async () => {
+  it('runs deep search without rendering the old demo create/delete buttons', async () => {
     await act(async () => {
       render(<App />)
     })
@@ -250,24 +299,12 @@ describe('Tree panel', () => {
 
     expect(searchMock).toHaveBeenCalledWith('live')
     expect(await screen.findByText('/services/api/live')).toBeInTheDocument()
-
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Demo create' }),
-      )
-    })
-    await act(async () => {
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Demo delete' }),
-      )
-    })
-
-    expect(createMock).toHaveBeenCalledWith(
-      '/demo-node',
-      expect.anything(),
-    )
-    expect(createMock.mock.calls[0]?.[1]?.constructor?.name).toBe('Uint8Array')
-    expect(deleteMock).toHaveBeenCalledWith('/demo-node')
+    expect(
+      screen.queryByRole('button', { name: 'Demo create' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Demo delete' }),
+    ).not.toBeInTheDocument()
   })
 
   it('opens a loaded tree node in the workbench using the clicked path', async () => {
@@ -726,5 +763,151 @@ describe('Tree panel', () => {
       within(servicesRow as HTMLElement).getByText(/ago$/i),
     ).toBeInTheDocument()
     expect(within(brokenRow as HTMLElement).getAllByText('--')).toHaveLength(2)
+  })
+
+  it('creates child nodes from the tree row context menu', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'connect connection Readonly',
+        }),
+      )
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
+    })
+
+    const servicesRow = (await screen.findByText('services')).closest('.tree-row')
+    expect(servicesRow).toBeTruthy()
+
+    fireEvent.contextMenu(servicesRow as HTMLElement)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Create child node' }))
+
+    fireEvent.change(screen.getByLabelText('child node name'), {
+      target: { value: 'worker' },
+    })
+    fireEvent.change(screen.getByLabelText('child node data'), {
+      target: { value: '{"enabled":true}' },
+    })
+
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('dialog', { name: 'Create child node' }))
+    })
+
+    expect(createMock).toHaveBeenCalledWith(
+      '/services/worker',
+      new TextEncoder().encode('{"enabled":true}'),
+    )
+  })
+
+  it('deletes subtrees and manages node marks from the tree row context menu', async () => {
+    nodeMarksListMock.mockResolvedValueOnce({
+      '/services': 'yellow',
+    })
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'connect connection Readonly',
+        }),
+      )
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
+    })
+
+    const servicesRow = (await screen.findByText('services')).closest('.tree-row')
+    expect(servicesRow).toBeTruthy()
+
+    expect(await screen.findByLabelText('yellow node mark')).toBeInTheDocument()
+
+    fireEvent.contextMenu(servicesRow as HTMLElement)
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'green node mark' }))
+
+    expect(nodeMarksSetMock).toHaveBeenCalledWith(
+      'readonly',
+      '/services',
+      'green',
+    )
+    expect(await screen.findByLabelText('green node mark')).toBeInTheDocument()
+
+    fireEvent.contextMenu(servicesRow as HTMLElement)
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'green node mark' }))
+
+    expect(nodeMarksClearMock).toHaveBeenCalledWith(
+      'readonly',
+      '/services',
+      false,
+    )
+
+    fireEvent.contextMenu(servicesRow as HTMLElement)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete node' }))
+
+    expect(
+      await screen.findByText(/contains child nodes/i),
+    ).toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Delete subtree' }))
+    })
+
+    expect(deleteMock).toHaveBeenCalledWith('/services', { recursive: true })
+  })
+
+  it('refreshes the loaded tree and expanded branches from the header action', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
+    })
+
+    let loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
+    let servicesRow = within(loadedTree)
+      .getAllByRole('listitem')
+      .find((item) => within(item).queryByText('services'))
+
+    expect(servicesRow).toBeDefined()
+
+    await act(async () => {
+      fireEvent.click(
+        within(servicesRow as HTMLElement).getByRole('button', { name: 'Expand' }),
+      )
+    })
+
+    expect(await screen.findByText('api')).toBeInTheDocument()
+
+    loadChildrenMock.mockImplementation(async (path: string) => {
+      if (path === '/') {
+        return [
+          createRow('/configs', { dataLength: 512 }),
+          createRow('/services', { hasChildren: true, dataLength: 2_048 }),
+        ]
+      }
+
+      if (path === '/services') {
+        return [createRow('/services/worker', { dataLength: 88 })]
+      }
+
+      return []
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Refresh tree' }))
+    })
+
+    expect(await screen.findByText('worker')).toBeInTheDocument()
+    expect(screen.queryByText('api')).not.toBeInTheDocument()
   })
 })

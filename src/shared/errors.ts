@@ -2,6 +2,7 @@ export type AppErrorCode =
   | 'CONNECTION_TIMEOUT'
   | 'CONNECTION_LOST'
   | 'NODE_NOT_FOUND'
+  | 'NODE_NOT_EMPTY'
   | 'NODE_ALREADY_EXISTS'
   | 'BAD_VERSION'
   | 'ACL_INVALID'

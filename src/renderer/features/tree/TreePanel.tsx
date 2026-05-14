@@ -1,7 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import type { MouseEvent } from 'react'
 
-import type { TreeNodeRow } from '../../../shared/models/node'
+import type {
+  NodeMarkColor,
+  TreeNodeRow,
+} from '../../../shared/models/node'
 import { useI18n } from '../../use-i18n'
+import { useConnectionsStore } from '../connections/useConnectionsStore'
 import { useWorkbenchStore } from '../../stores/useWorkbenchStore'
 import { TreeSearchBar } from './TreeSearchBar'
 import { formatBytes, formatRelativeTime } from './tree-formatters'
@@ -12,10 +17,26 @@ type TreeBranchProps = {
   depth: number
   expandedPaths: string[]
   rowsByPath: Record<string, TreeNodeRow[]>
+  marksByPath: Record<string, NodeMarkColor>
   query: string
   activePath: string | null
   onToggle: (path: string) => void
   onOpen: (path: string) => void
+  onContextMenu: (event: MouseEvent<HTMLDivElement>, row: TreeNodeRow) => void
+}
+
+type TreeContextMenuState = {
+  row: TreeNodeRow
+  x: number
+  y: number
+}
+
+type CreateDialogState = {
+  parentPath: string
+}
+
+type DeleteDialogState = {
+  row: TreeNodeRow
 }
 
 function shouldRenderPath(
@@ -72,10 +93,12 @@ function TreeBranch({
   depth,
   expandedPaths,
   rowsByPath,
+  marksByPath,
   query,
   activePath,
   onToggle,
   onOpen,
+  onContextMenu,
 }: TreeBranchProps) {
   const { t } = useI18n()
 
@@ -92,6 +115,7 @@ function TreeBranch({
   ]
     .filter(Boolean)
     .join(' ')
+  const markColor = marksByPath[row.path]
 
   return (
     <li className="tree-row-wrapper">
@@ -101,6 +125,7 @@ function TreeBranch({
         role="button"
         tabIndex={0}
         onClick={() => onOpen(row.path)}
+        onContextMenu={(event) => onContextMenu(event, row)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
@@ -129,7 +154,7 @@ function TreeBranch({
               aria-hidden="true"
               className="tree-row__toggle tree-row__toggle--placeholder"
             >
-              ·
+              .
             </span>
           )}
           <span aria-hidden="true" className="tree-row__icon">
@@ -138,6 +163,13 @@ function TreeBranch({
           <span className="tree-row__open" title={row.path}>
             {row.name}
           </span>
+          {markColor ? (
+            <span
+              aria-label={`${markColor} node mark`}
+              className={`tree-row__mark tree-row__mark--${markColor}`}
+              title={`${markColor} mark`}
+            />
+          ) : null}
         </div>
         <div className="tree-row__size">{formatBytes(row.dataLength)}</div>
         <div className="tree-row__updated">{formatRelativeTime(row.mtime)}</div>
@@ -151,10 +183,12 @@ function TreeBranch({
               depth={depth + 1}
               expandedPaths={expandedPaths}
               rowsByPath={rowsByPath}
+              marksByPath={marksByPath}
               query={query}
               activePath={activePath}
               onToggle={onToggle}
               onOpen={onOpen}
+              onContextMenu={onContextMenu}
             />
           ))}
         </ul>
@@ -163,25 +197,142 @@ function TreeBranch({
   )
 }
 
+function CreateChildNodeDialog(props: {
+  parentPath: string
+  onCancel: () => void
+  onSubmit: (childName: string, initialData: string) => Promise<void>
+}) {
+  const { t } = useI18n()
+  const { parentPath, onCancel, onSubmit } = props
+  const [childName, setChildName] = useState('')
+  const [initialData, setInitialData] = useState('')
+
+  return (
+    <div className="dialog-backdrop">
+      <form
+        aria-label="Create child node"
+        aria-modal="true"
+        className="dialog"
+        role="dialog"
+        onSubmit={(event) => {
+          event.preventDefault()
+          void onSubmit(childName, initialData)
+        }}
+      >
+        <h3>{t('tree.createChildNode')}</h3>
+        <p>{t('tree.createChildDescription', { path: parentPath })}</p>
+
+        <label className="dialog__field">
+          <span>{t('tree.childName')}</span>
+          <input
+            aria-label="child node name"
+            type="text"
+            value={childName}
+            onChange={(event) => setChildName(event.target.value)}
+          />
+        </label>
+
+        <label className="dialog__field">
+          <span>{t('tree.initialData')}</span>
+          <textarea
+            aria-label="child node data"
+            rows={5}
+            value={initialData}
+            onChange={(event) => setInitialData(event.target.value)}
+          />
+        </label>
+
+        <div className="dialog__actions">
+          <button type="button" onClick={onCancel}>
+            {t('dialog.cancel')}
+          </button>
+          <button className="button-primary" type="submit">
+            {t('tree.createChildNode')}
+          </button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
+function DeleteNodeDialog(props: {
+  row: TreeNodeRow
+  onCancel: () => void
+  onDeleteNodeOnly: () => Promise<void>
+  onDeleteSubtree: () => Promise<void>
+}) {
+  const { t } = useI18n()
+  const { row, onCancel, onDeleteNodeOnly, onDeleteSubtree } = props
+
+  return (
+    <div className="dialog-backdrop">
+      <div
+        aria-label="Delete node confirmation"
+        aria-modal="true"
+        className="dialog"
+        role="dialog"
+      >
+        <h3>{t('tree.deleteNode')}</h3>
+        <p>{t('tree.deleteNodeDescription', { path: row.path })}</p>
+        {row.hasChildren ? (
+          <p>{t('tree.deleteSubtreeDescription')}</p>
+        ) : null}
+
+        <div className="dialog__actions">
+          <button type="button" onClick={onCancel}>
+            {t('dialog.cancel')}
+          </button>
+          <button
+            className="button-danger"
+            type="button"
+            onClick={() => void onDeleteNodeOnly()}
+          >
+            {t('tree.deleteNodeOnly')}
+          </button>
+          {row.hasChildren ? (
+            <button
+              className="button-danger"
+              type="button"
+              onClick={() => void onDeleteSubtree()}
+            >
+              {t('tree.deleteSubtree')}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function TreePanel() {
   const { t } = useI18n()
   const activePath = useWorkbenchStore((store) => store.activePath)
   const openNode = useWorkbenchStore((store) => store.openNode)
+  const { activeConnectionId, connectionState } = useConnectionsStore()
   const {
     rowsByPath,
+    marksByPath,
     expandedPaths,
     loadingPaths,
     query,
     searchResults,
     feedback,
     loadRoot,
+    refreshTree,
     toggleNode,
     setQuery,
     runDeepSearch,
-    createDemoNode,
-    deleteDemoNode,
+    loadNodeMarks,
+    clearNodeMarksState,
+    setNodeMark,
+    clearNodeMark,
+    createChildNode,
+    deleteNode,
     handleRuntimeEvent,
   } = useTreeStore()
+  const [contextMenu, setContextMenu] = useState<TreeContextMenuState | null>(null)
+  const [createDialog, setCreateDialog] = useState<CreateDialogState | null>(null)
+  const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null)
 
   const rootRows = rowsByPath['/'] ?? []
   const rootVisible = !query
@@ -198,6 +349,98 @@ export function TreePanel() {
     })
   }, [handleRuntimeEvent])
 
+  useEffect(() => {
+    if (!activeConnectionId || connectionState === 'disconnected') {
+      clearNodeMarksState()
+      setContextMenu(null)
+      setCreateDialog(null)
+      setDeleteDialog(null)
+      return
+    }
+
+    void loadNodeMarks(activeConnectionId)
+  }, [
+    activeConnectionId,
+    clearNodeMarksState,
+    connectionState,
+    loadNodeMarks,
+  ])
+
+  useEffect(() => {
+    if (!contextMenu) {
+      return undefined
+    }
+
+    const handleWindowInteraction = () => {
+      setContextMenu(null)
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setContextMenu(null)
+      }
+    }
+
+    window.addEventListener('click', handleWindowInteraction)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('click', handleWindowInteraction)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [contextMenu])
+
+  const markOptions: NodeMarkColor[] = ['red', 'orange', 'yellow', 'green']
+
+  async function handleCreateSubmit(childName: string, initialData: string) {
+    if (!createDialog) {
+      return
+    }
+
+    const created = await createChildNode(
+      createDialog.parentPath,
+      childName,
+      initialData,
+    )
+    if (created) {
+      setCreateDialog(null)
+    }
+  }
+
+  async function handleDeleteNodeOnly() {
+    if (!deleteDialog) {
+      return
+    }
+
+    const deleted = await deleteNode(deleteDialog.row.path)
+    if (deleted) {
+      setDeleteDialog(null)
+    }
+  }
+
+  async function handleDeleteSubtree() {
+    if (!deleteDialog) {
+      return
+    }
+
+    const deleted = await deleteNode(deleteDialog.row.path, { recursive: true })
+    if (deleted) {
+      setDeleteDialog(null)
+    }
+  }
+
+  function handleTreeContextMenu(
+    event: MouseEvent<HTMLDivElement>,
+    row: TreeNodeRow,
+  ) {
+    event.preventDefault()
+    setContextMenu({
+      row,
+      x: event.clientX,
+      y: event.clientY,
+    })
+  }
+
   return (
     <aside className="panel tree-panel" aria-label={t('panel.nodes')}>
       <div className="panel__header">
@@ -212,11 +455,8 @@ export function TreePanel() {
           <button type="button" onClick={() => void loadRoot()}>
             {t('tree.loadRoot')}
           </button>
-          <button type="button" onClick={() => void createDemoNode()}>
-            {t('tree.demoCreate')}
-          </button>
-          <button type="button" onClick={() => void deleteDemoNode()}>
-            {t('tree.demoDelete')}
+          <button type="button" onClick={() => void refreshTree()}>
+            {t('tree.refreshTree')}
           </button>
         </div>
       </div>
@@ -257,10 +497,12 @@ export function TreePanel() {
                     depth={0}
                     expandedPaths={expandedPaths}
                     rowsByPath={rowsByPath}
+                    marksByPath={marksByPath}
                     query={query}
                     activePath={activePath}
                     onToggle={toggleNode}
                     onOpen={openNode}
+                    onContextMenu={handleTreeContextMenu}
                   />
                 ))
               )}
@@ -283,6 +525,90 @@ export function TreePanel() {
           ) : null}
         </div>
       </div>
+
+      {contextMenu ? (
+        <div
+          className="context-menu"
+          role="menu"
+          style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
+        >
+          <button
+            className="context-menu__item"
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              setContextMenu(null)
+              setCreateDialog({ parentPath: contextMenu.row.path })
+            }}
+          >
+            {t('tree.createChildNode')}
+          </button>
+          {contextMenu.row.path !== '/' ? (
+            <button
+              className="context-menu__item"
+              role="menuitem"
+              type="button"
+              onClick={() => {
+                setContextMenu(null)
+                setDeleteDialog({ row: contextMenu.row })
+              }}
+            >
+              {t('tree.deleteNode')}
+            </button>
+          ) : null}
+          <div className="context-menu__mark-row">
+            <span className="context-menu__label">{t('tree.markNode')}</span>
+            <div className="context-menu__swatches" role="group" aria-label={t('tree.markNode')}>
+              {markOptions.map((color) => {
+                const isSelected = marksByPath[contextMenu.row.path] === color
+
+                return (
+                  <button
+                    key={color}
+                    aria-label={`${color} node mark`}
+                    aria-pressed={isSelected}
+                    className={[
+                      'context-menu__swatch',
+                      `context-menu__swatch--${color}`,
+                      isSelected ? 'context-menu__swatch--selected' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    role="menuitemradio"
+                    type="button"
+                    onClick={() => {
+                      setContextMenu(null)
+                      if (isSelected) {
+                        void clearNodeMark(activeConnectionId, contextMenu.row.path)
+                        return
+                      }
+
+                      void setNodeMark(activeConnectionId, contextMenu.row.path, color)
+                    }}
+                  />
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {createDialog ? (
+        <CreateChildNodeDialog
+          parentPath={createDialog.parentPath}
+          onCancel={() => setCreateDialog(null)}
+          onSubmit={handleCreateSubmit}
+        />
+      ) : null}
+
+      {deleteDialog ? (
+        <DeleteNodeDialog
+          row={deleteDialog.row}
+          onCancel={() => setDeleteDialog(null)}
+          onDeleteNodeOnly={handleDeleteNodeOnly}
+          onDeleteSubtree={handleDeleteSubtree}
+        />
+      ) : null}
     </aside>
   )
 }

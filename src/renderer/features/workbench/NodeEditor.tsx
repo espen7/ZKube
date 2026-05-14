@@ -7,6 +7,7 @@ type NodeEditorProps = {
   path: string
   value: string
   error: string | null
+  errorCode: string | null
   isLoading: boolean
   isSaving: boolean
   onChange: (value: string) => void
@@ -64,6 +65,7 @@ export function NodeEditor({
   path,
   value,
   error,
+  errorCode,
   isLoading,
   isSaving,
   onChange,
@@ -114,7 +116,18 @@ export function NodeEditor({
           </button>
         </div>
         {isLoading ? <p>{t('editor.loading')}</p> : null}
-        {error ? <p role="alert">{error}</p> : null}
+        {error ? (
+          <p
+            className={
+              errorCode === 'BAD_VERSION'
+                ? 'node-editor__alert node-editor__alert--conflict'
+                : 'node-editor__alert'
+            }
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
       </div>
     </section>
   )

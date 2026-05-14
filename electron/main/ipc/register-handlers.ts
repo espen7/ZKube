@@ -12,6 +12,7 @@ import { ConnectionService } from '../../../src/domain/connections/connection-se
 import { SessionManager } from '../../../src/domain/zookeeper/session-manager'
 import { SecretStore } from '../../../src/infrastructure/security/secret-store'
 import { ConnectionRepository } from '../../../src/infrastructure/storage/connection-repository'
+import { NodeMarkRepository } from '../../../src/infrastructure/storage/node-mark-repository'
 import { PreferencesRepository } from '../../../src/infrastructure/storage/preferences-repository'
 import { NodeZkClient } from '../../../src/infrastructure/zookeeper/node-zk-client'
 import { channels } from '../../../src/shared/ipc'
@@ -34,6 +35,9 @@ export function registerHandlers(userDataPath: string): void {
   )
   const preferencesRepository = new PreferencesRepository(
     path.join(userDataPath, 'preferences.json'),
+  )
+  const nodeMarkRepository = new NodeMarkRepository(
+    path.join(userDataPath, 'node-marks.json'),
   )
   const connectionService = new ConnectionService(repository, secretStore)
 
@@ -59,6 +63,17 @@ export function registerHandlers(userDataPath: string): void {
     sendEventToAllWindows(channels.runtimeEvent, event)
   }
 
+  const handleSessionRuntimeEvent = (event: RuntimeEvent) => {
+    if (
+      event.type === 'connectionStateChanged' &&
+      event.state === 'disconnected'
+    ) {
+      activeConnection = null
+    }
+
+    sendRuntimeEvent(event)
+  }
+
   const resolvePreferences = async (): Promise<Preferences> => {
     const savedPreferences = await preferencesRepository.getPreferences()
     const fallbackTheme: Theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
@@ -70,7 +85,7 @@ export function registerHandlers(userDataPath: string): void {
     }
   }
 
-  let stopRuntimeEvents = sessionManager.subscribe(sendRuntimeEvent)
+  let stopRuntimeEvents = sessionManager.subscribe(handleSessionRuntimeEvent)
 
   ipcMain.handle(channels.connectionList, () => connectionService.list())
   ipcMain.handle(channels.connectionSave, (_event, draft) =>
@@ -82,6 +97,7 @@ export function registerHandlers(userDataPath: string): void {
     }
 
     await connectionService.delete(payload.connectionId)
+    await nodeMarkRepository.clearConnection(payload.connectionId)
   })
   ipcMain.handle(channels.connectionExport, () => connectionService.exportAll())
   ipcMain.handle(channels.connectionImport, (_event, payload) =>
@@ -157,7 +173,7 @@ export function registerHandlers(userDataPath: string): void {
 
     activeConnection = nextConnection
     sessionManager = nextSessionManager
-    stopRuntimeEvents = nextSessionManager.subscribe(sendRuntimeEvent)
+    stopRuntimeEvents = nextSessionManager.subscribe(handleSessionRuntimeEvent)
     sendRuntimeEvent({
       type: 'connectionStateChanged',
       state: 'connected',
@@ -180,6 +196,19 @@ export function registerHandlers(userDataPath: string): void {
   ipcMain.handle(channels.preferencesOpenSettings, async () => {
     await createOrFocusSettingsWindow()
   })
+  ipcMain.handle(channels.nodeMarksList, (_event, payload) =>
+    nodeMarkRepository.list(payload.connectionId),
+  )
+  ipcMain.handle(channels.nodeMarksSet, async (_event, payload) => {
+    await nodeMarkRepository.set(payload.connectionId, payload.path, payload.color)
+  })
+  ipcMain.handle(channels.nodeMarksClear, async (_event, payload) => {
+    await nodeMarkRepository.clear(
+      payload.connectionId,
+      payload.path,
+      payload.recursive ?? false,
+    )
+  })
   ipcMain.handle(channels.zookeeperDisconnect, async () => {
     await sessionManager.disconnect()
     activeConnection = null
@@ -196,9 +225,16 @@ export function registerHandlers(userDataPath: string): void {
   ipcMain.handle(channels.zookeeperCreate, (_event, payload) =>
     sessionManager.create(payload.path, Buffer.from(payload.data)),
   )
-  ipcMain.handle(channels.zookeeperDelete, (_event, payload) =>
-    sessionManager.delete(payload.path, payload.version),
-  )
+  ipcMain.handle(channels.zookeeperDelete, async (_event, payload) => {
+    await sessionManager.delete(payload.path, {
+      version: payload.version,
+      recursive: payload.recursive,
+    })
+
+    if (activeConnection) {
+      await nodeMarkRepository.clear(activeConnection.id, payload.path, true)
+    }
+  })
   ipcMain.handle(channels.zookeeperUpdate, (_event, payload) =>
     sessionManager.update(payload.path, Buffer.from(payload.data), payload.version),
   )

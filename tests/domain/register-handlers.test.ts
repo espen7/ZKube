@@ -113,6 +113,15 @@ vi.mock('../../src/infrastructure/storage/connection-repository', () => ({
   ConnectionRepository: class {},
 }))
 
+vi.mock('../../src/infrastructure/storage/node-mark-repository', () => ({
+  NodeMarkRepository: class {
+    list = vi.fn().mockResolvedValue({})
+    set = vi.fn()
+    clear = vi.fn()
+    clearConnection = vi.fn()
+  },
+}))
+
 import { registerHandlers } from '../../electron/main/ipc/register-handlers'
 import { channels } from '../../src/shared/ipc'
 

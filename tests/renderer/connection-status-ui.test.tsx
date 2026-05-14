@@ -121,6 +121,7 @@ describe('connection status ui', () => {
     })
 
     expect(within(card as HTMLElement).getByText('Healthy')).toBeInTheDocument()
+    expect(card).toHaveClass('connection-card--active', 'connection-card--healthy')
     expect(
       within(card as HTMLElement).getByLabelText(/connection health local zookeeper/i),
     ).toHaveAttribute('data-state', 'connected')
@@ -162,6 +163,7 @@ describe('connection status ui', () => {
         }),
       ).toBeInTheDocument()
     })
+    expect(card).not.toHaveClass('connection-card--active', 'connection-card--healthy')
     expect(within(card as HTMLElement).queryByText('Healthy')).not.toBeInTheDocument()
     expect(
       within(screen.getByLabelText('Runtime status bar')).queryByText(
@@ -193,5 +195,51 @@ describe('connection status ui', () => {
       }),
     ).toBeEnabled()
     expect(within(card as HTMLElement).queryByText('Healthy')).not.toBeInTheDocument()
+  })
+
+  it('shows a disconnect notice dialog when a connected session drops unexpectedly', async () => {
+    render(<App />)
+
+    const card = (await screen.findByText('Local ZooKeeper')).closest('article')
+    expect(card).not.toBeNull()
+
+    fireEvent.click(
+      within(card as HTMLElement).getByRole('button', {
+        name: /connect connection local zookeeper/i,
+      }),
+    )
+
+    await act(async () => {
+      emitRuntimeEvent({
+        type: 'connectionStateChanged',
+        state: 'connected',
+      })
+    })
+
+    await act(async () => {
+      emitRuntimeEvent({
+        type: 'connectionStateChanged',
+        state: 'disconnected',
+      })
+    })
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Connection lost' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('The active ZooKeeper connection was lost.'),
+    ).toBeInTheDocument()
+    expect(card).not.toHaveClass('connection-card--active', 'connection-card--healthy')
+    expect(
+      within(screen.getByLabelText('Runtime status bar')).queryByText(
+        /192\.168\.171\.15:2181/i,
+      ),
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(
+      screen.queryByRole('dialog', { name: 'Connection lost' }),
+    ).not.toBeInTheDocument()
   })
 })

@@ -13,6 +13,15 @@ let rendererTarget: RendererTarget | null = null
 let mainWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 
+function getWindowIconPath() {
+  return path.join(app.getAppPath(), 'build', 'icon.ico')
+}
+
+function hideWindowMenu(window: BrowserWindow) {
+  window.setMenuBarVisibility(false)
+  window.removeMenu()
+}
+
 export function configureRendererTarget(target: RendererTarget) {
   rendererTarget = target
 }
@@ -30,6 +39,8 @@ export async function createMainWindow() {
     height: 980,
     minWidth: 1200,
     minHeight: 760,
+    icon: getWindowIconPath(),
+    autoHideMenuBar: true,
     backgroundColor: '#0f172a',
     webPreferences: {
       preload: preloadPath,
@@ -39,6 +50,7 @@ export async function createMainWindow() {
   })
 
   mainWindow = window
+  hideWindowMenu(window)
   window.on('closed', () => {
     if (mainWindow === window) {
       mainWindow = null
@@ -52,6 +64,7 @@ export async function createMainWindow() {
 
 export async function createOrFocusSettingsWindow() {
   if (settingsWindow && !settingsWindow.isDestroyed()) {
+    hideWindowMenu(settingsWindow)
     settingsWindow.focus()
     return settingsWindow
   }
@@ -70,6 +83,8 @@ export async function createOrFocusSettingsWindow() {
     minHeight: 560,
     resizable: true,
     maximizable: true,
+    icon: getWindowIconPath(),
+    autoHideMenuBar: true,
     backgroundColor: '#0f172a',
     parent: mainWindow ?? undefined,
     title: 'ZKube Settings',
@@ -81,6 +96,7 @@ export async function createOrFocusSettingsWindow() {
   })
 
   settingsWindow = window
+  hideWindowMenu(window)
   window.on('closed', () => {
     if (settingsWindow === window) {
       settingsWindow = null

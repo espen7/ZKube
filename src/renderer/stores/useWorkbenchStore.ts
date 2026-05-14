@@ -2,6 +2,9 @@ import { create } from 'zustand'
 
 import type { NodeSnapshot } from '../../shared/models/node'
 import type { RuntimeEvent } from '../../shared/models/node'
+import type { AppErrorCode } from '../../shared/errors'
+import { translate } from '../i18n'
+import { getPreferencesSnapshot } from '../features/settings/useThemeStore'
 
 export type WorkbenchPane = 'Data' | 'Meta' | 'ACL'
 export type WorkbenchLoadState = 'idle' | 'loading' | 'ready' | 'error'
@@ -17,6 +20,7 @@ export type WorkbenchTab = {
   loadState: WorkbenchLoadState
   saving: boolean
   error: string | null
+  errorCode: AppErrorCode | null
 }
 
 type WorkbenchState = {
@@ -31,12 +35,15 @@ type WorkbenchState = {
   applyFormatter: (path: string, formatter: (input: string) => string) => void
   handleRuntimeEvent: (event: RuntimeEvent) => void
   loadTab: (path: string) => Promise<void>
+  refreshTab: (path: string) => Promise<void>
   saveTab: (path: string) => Promise<void>
 }
 
 const defaultStat = {
   version: 0,
   numChildren: 0,
+  mtime: null,
+  dataLength: null,
 }
 
 const encoder = new TextEncoder()
@@ -48,6 +55,19 @@ function getErrorMessage(error: unknown) {
   }
 
   return 'Unable to complete the node action.'
+}
+
+function getAppErrorCode(error: unknown): AppErrorCode | null {
+  return typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    typeof error.code === 'string'
+    ? (error.code as AppErrorCode)
+    : null
+}
+
+function t(key: string) {
+  return translate(getPreferencesSnapshot().language, key)
 }
 
 function toTitle(path: string) {
@@ -67,6 +87,7 @@ function createTab(path: string): WorkbenchTab {
     loadState: 'idle',
     saving: false,
     error: null,
+    errorCode: null,
   }
 }
 
@@ -80,6 +101,13 @@ function upsertTab(
     : [...tabs, createTab(path)]
 
   return nextTabs.map((tab) => (tab.path === path ? updater(tab) : tab))
+}
+
+function isSameOrDescendantPath(candidatePath: string, targetPath: string) {
+  return (
+    candidatePath === targetPath ||
+    candidatePath.startsWith(`${targetPath}/`)
+  )
 }
 
 let nextSessionId = 0
@@ -123,6 +151,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         ...tab,
         draft,
         error: null,
+        errorCode: null,
       })),
     }))
   },
@@ -133,6 +162,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         ...tab,
         acl,
         error: null,
+        errorCode: null,
       })),
     }))
   },
@@ -143,10 +173,29 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         ...tab,
         draft: formatter(tab.draft),
         error: null,
+        errorCode: null,
       })),
     }))
   },
   handleRuntimeEvent: (event) => {
+    if (event.type === 'nodeDeleted') {
+      set((state) => {
+        const nextTabs = state.tabs.filter(
+          (tab) => !isSameOrDescendantPath(tab.path, event.path),
+        )
+        const nextActivePath =
+          state.activePath && !isSameOrDescendantPath(state.activePath, event.path)
+            ? state.activePath
+            : nextTabs.at(-1)?.path ?? null
+
+        return {
+          activePath: nextActivePath,
+          tabs: nextTabs,
+        }
+      })
+      return
+    }
+
     if (event.type !== 'connectionStateChanged') {
       return
     }
@@ -181,6 +230,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
         ...tab,
         loadState: 'loading',
         error: null,
+        errorCode: null,
       })),
     }))
 
@@ -202,6 +252,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
           acl: snapshot.acl,
           loadState: 'ready',
           error: null,
+          errorCode: null,
         })),
       }))
     } catch (error) {
@@ -215,6 +266,65 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
           ...tab,
           loadState: 'error',
           error: getErrorMessage(error),
+          errorCode: getAppErrorCode(error),
+        })),
+      }))
+    }
+  },
+  refreshTab: async (path) => {
+    if (!window.zkube?.zookeeper.open) {
+      return
+    }
+
+    const sessionId = get().sessionId
+    const currentTab = get().tabs.find((tab) => tab.path === path) ?? createTab(path)
+    if (currentTab.loadState === 'loading') {
+      return
+    }
+
+    set((state) => ({
+      activePath: path,
+      tabs: upsertTab(state.tabs, path, (tab) => ({
+        ...tab,
+        loadState: 'loading',
+        error: null,
+        errorCode: null,
+      })),
+    }))
+
+    try {
+      const snapshot = await window.zkube.zookeeper.open(path)
+      if (get().sessionId !== sessionId) {
+        return
+      }
+
+      const draft = decoder.decode(snapshot.data)
+
+      set((state) => ({
+        activePath: path,
+        tabs: upsertTab(state.tabs, path, (tab) => ({
+          ...tab,
+          draft,
+          savedDraft: draft,
+          stat: snapshot.stat,
+          acl: snapshot.acl,
+          loadState: 'ready',
+          error: null,
+          errorCode: null,
+        })),
+      }))
+    } catch (error) {
+      if (get().sessionId !== sessionId) {
+        return
+      }
+
+      set((state) => ({
+        activePath: path,
+        tabs: upsertTab(state.tabs, path, (tab) => ({
+          ...tab,
+          loadState: 'error',
+          error: getErrorMessage(error),
+          errorCode: getAppErrorCode(error),
         })),
       }))
     }
@@ -242,6 +352,7 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
               ...tab,
               saving: true,
               error: null,
+              errorCode: null,
             }
           : tab,
       ),
@@ -269,11 +380,18 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
                 },
                 saving: false,
                 error: null,
+                errorCode: null,
               }
             : tab,
         ),
       }))
     } catch (error) {
+      const errorCode = getAppErrorCode(error)
+      const message =
+        errorCode === 'BAD_VERSION'
+          ? t('editor.versionConflict')
+          : getErrorMessage(error)
+
       if (get().sessionId !== sessionId) {
         return
       }
@@ -284,7 +402,8 @@ export const useWorkbenchStore = create<WorkbenchState>((set, get) => ({
             ? {
                 ...tab,
                 saving: false,
-                error: getErrorMessage(error),
+                error: message,
+                errorCode,
               }
             : tab,
         ),

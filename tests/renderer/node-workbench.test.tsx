@@ -26,6 +26,8 @@ vi.mock('@monaco-editor/react', () => ({
 import App from '../../src/renderer/App'
 import { formatJson, formatXml } from '../../src/renderer/features/workbench/formatters'
 import { useWorkbenchStore } from '../../src/renderer/stores/useWorkbenchStore'
+import type { StoredConnection } from '../../src/shared/models/connection'
+import type { NodeMarkColor } from '../../src/shared/models/node'
 import type { NodeSnapshot, RuntimeEvent } from '../../src/shared/models/node'
 
 function createDeferred<T>() {
@@ -62,6 +64,9 @@ describe('node workbench', () => {
     >
   >
   const runtimeListeners = new Set<(event: RuntimeEvent) => void>()
+  let connectionsListMock: ReturnType<typeof vi.fn>
+  let connectMock: ReturnType<typeof vi.fn<(connectionId: string) => Promise<void>>>
+  let nodeMarksListMock: ReturnType<typeof vi.fn>
   let saveAclMock: ReturnType<
     typeof vi.fn<
       (path: string, acl: NodeSnapshot['acl']) => Promise<void>
@@ -76,12 +81,17 @@ describe('node workbench', () => {
       stat: {
         version: 7,
         numChildren: 2,
+        mtime: 1_715_000_000_000,
+        dataLength: 16,
       },
       acl: [],
     })
     updateMock = vi
       .fn<(path: string, data: Uint8Array, version?: number) => Promise<void>>()
       .mockResolvedValue(undefined)
+    connectionsListMock = vi.fn().mockResolvedValue([] satisfies StoredConnection[])
+    connectMock = vi.fn<(connectionId: string) => Promise<void>>().mockResolvedValue(undefined)
+    nodeMarksListMock = vi.fn().mockResolvedValue({} satisfies Record<string, NodeMarkColor>)
     saveAclMock = vi
       .fn<(path: string, acl: NodeSnapshot['acl']) => Promise<void>>()
       .mockResolvedValue(undefined)
@@ -92,11 +102,25 @@ describe('node workbench', () => {
         ping: vi.fn(),
       },
       connections: {
-        list: vi.fn().mockResolvedValue([]),
+        list: () =>
+          (connectionsListMock as () => Promise<StoredConnection[]>)(),
         save: vi.fn(),
         exportAll: vi.fn(),
         importJson: vi.fn(),
-        connect: vi.fn(),
+        connect: (connectionId: string) => connectMock(connectionId),
+        importFromFile: vi.fn(),
+        exportToFile: vi.fn(),
+        delete: vi.fn(),
+      },
+      nodeMarks: {
+        list: (connectionId: string) =>
+          (
+            nodeMarksListMock as (
+              connectionId: string,
+            ) => Promise<Record<string, NodeMarkColor>>
+          )(connectionId),
+        set: vi.fn(),
+        clear: vi.fn(),
       },
       zookeeper: {
         disconnect: vi.fn(),
@@ -143,6 +167,10 @@ describe('node workbench', () => {
       render(<App />)
     })
 
+    expect(screen.getByRole('heading', { name: 'MARK NODE' })).toBeInTheDocument()
+    expect(
+      screen.getByText('No marked nodes for this connection.'),
+    ).toBeInTheDocument()
     expect(
       screen.getByText('Open a node from the tree or search results to start editing.'),
     ).toBeInTheDocument()
@@ -163,8 +191,9 @@ describe('node workbench', () => {
     expect(monacoEditorSpy).toHaveBeenCalled()
 
     fireEvent.click(screen.getByRole('button', { name: 'Meta' }))
-    expect(await screen.findByText('7')).toBeInTheDocument()
-    expect(screen.getByText('2')).toBeInTheDocument()
+    const metaPane = await screen.findByLabelText('Node meta pane')
+    expect(within(metaPane).getByText('7')).toBeInTheDocument()
+    expect(within(metaPane).getByText('2')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'ACL' }))
     expect(
@@ -173,6 +202,26 @@ describe('node workbench', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Data' }))
     expect(screen.getByTestId('monaco-editor')).toHaveValue('{"service":"zk"}')
+  })
+
+  it('merges the inspector summary into the meta pane for the active node', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    await openNode()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Meta' }))
+    const metaPane = screen.getByLabelText('Node meta pane')
+
+    expect(within(metaPane).getByText('/config/service')).toBeInTheDocument()
+    expect(within(metaPane).getByText('7')).toBeInTheDocument()
+    expect(within(metaPane).getByText('2')).toBeInTheDocument()
+    expect(within(metaPane).getByText('16 B')).toBeInTheDocument()
+    expect(
+      within(metaPane).getByText(new Date(1_715_000_000_000).toLocaleString()),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Node Inspector' })).not.toBeInTheDocument()
   })
 
   it('renders the node editor with a compact path label and action buttons below the editor', async () => {
@@ -219,6 +268,8 @@ describe('node workbench', () => {
       stat: {
         version: 7,
         numChildren: 2,
+        mtime: 1_715_000_000_000,
+        dataLength: 16,
       },
       acl: [
         {
@@ -352,6 +403,152 @@ describe('node workbench', () => {
     )
   })
 
+  it('shows a dedicated version-conflict message when ZooKeeper rejects the save with BAD_VERSION', async () => {
+    updateMock.mockRejectedValueOnce(
+      Object.assign(new Error('stale version'), { code: 'BAD_VERSION' }),
+    )
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    await openNode()
+
+    const editor = await screen.findByTestId('monaco-editor')
+    fireEvent.change(editor, {
+      target: { value: '{"service":"dirty"}' },
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This node was updated elsewhere. Refresh the node and review the latest data before saving again.',
+    )
+    expect(editor).toHaveValue('{"service":"dirty"}')
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+  })
+
+  it('keeps non-version save failures on the generic error path', async () => {
+    updateMock.mockRejectedValueOnce(new Error('Connection lost during save'))
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    await openNode()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Connection lost during save',
+    )
+  })
+
+  it('refreshes the active node from the workbench header action', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    await openNode()
+
+    openMock.mockResolvedValueOnce({
+      path: '/config/service',
+      data: new TextEncoder().encode('{"service":"refreshed"}'),
+      stat: {
+        version: 8,
+        numChildren: 3,
+        mtime: 1_715_200_000_000,
+        dataLength: 23,
+      },
+      acl: [],
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Refresh node' }))
+    })
+
+    expect(openMock).toHaveBeenCalledTimes(2)
+    expect(await screen.findByTestId('monaco-editor')).toHaveValue(
+      '{"service":"refreshed"}',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Meta' }))
+    expect(screen.getByText('8')).toBeInTheDocument()
+  })
+
+  it('shows current-connection marked nodes in the workbench header and opens them on click', async () => {
+    connectionsListMock.mockResolvedValueOnce([
+      {
+        id: 'readonly-1',
+        name: 'Readonly',
+        hosts: '192.168.171.15:2181',
+        updatedAt: '2026-05-14T10:00:00.000Z',
+      },
+    ])
+    nodeMarksListMock.mockResolvedValueOnce({
+      '/config/service': 'red',
+      '/config/service/child': 'green',
+    })
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /connect connection readonly/i }),
+    )
+
+    expect(await screen.findByRole('button', { name: '/config/service' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '/config/service/child' })).toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: '/config/service/child' }))
+    })
+
+    expect(openMock).toHaveBeenCalledWith('/config/service/child')
+  })
+
+  it('confirms before refreshing when the active node has unsaved draft changes', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    await openNode()
+
+    fireEvent.change(await screen.findByTestId('monaco-editor'), {
+      target: { value: '{"service":"dirty"}' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh node' }))
+
+    expect(
+      screen.getByRole('dialog', { name: 'Discard unsaved changes?' }),
+    ).toBeInTheDocument()
+    expect(openMock).toHaveBeenCalledTimes(1)
+
+    openMock.mockResolvedValueOnce({
+      path: '/config/service',
+      data: new TextEncoder().encode('{"service":"clean"}'),
+      stat: {
+        version: 9,
+        numChildren: 2,
+        mtime: 1_715_200_100_000,
+        dataLength: 19,
+      },
+      acl: [],
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard and refresh' }))
+
+    expect(await screen.findByTestId('monaco-editor')).toHaveValue(
+      '{"service":"clean"}',
+    )
+    expect(screen.queryByRole('dialog', { name: 'Discard unsaved changes?' })).not.toBeInTheDocument()
+  })
+
   it('clears old workbench tabs on connection changes and prevents saving stale paths', async () => {
     await act(async () => {
       render(<App />)
@@ -413,6 +610,8 @@ describe('node workbench', () => {
         stat: {
           version: 4,
           numChildren: 1,
+          mtime: 1_715_100_000_000,
+          dataLength: 19,
         },
         acl: [],
       })
@@ -423,5 +622,32 @@ describe('node workbench', () => {
     ).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: '/services/api' })).not.toBeInTheDocument()
     expect(useWorkbenchStore.getState().tabs).toHaveLength(0)
+  })
+
+  it('closes tabs for a deleted subtree when a nodeDeleted runtime event arrives', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    await openNode('/services')
+    await openNode('/services/api')
+
+    expect(useWorkbenchStore.getState().tabs.map((tab) => tab.path)).toEqual([
+      '/services',
+      '/services/api',
+    ])
+
+    await act(async () => {
+      emitRuntimeEvent({
+        type: 'nodeDeleted',
+        path: '/services',
+      })
+    })
+
+    expect(useWorkbenchStore.getState().tabs).toHaveLength(0)
+    expect(useWorkbenchStore.getState().activePath).toBeNull()
+    expect(
+      screen.getByText('Open a node from the tree or search results to start editing.'),
+    ).toBeInTheDocument()
   })
 })

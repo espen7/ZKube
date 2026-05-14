@@ -70,12 +70,30 @@ class FakeClient {
   searchResults = ['/app', '/config']
   createNodeCalls: Array<{ path: string; data: Buffer }> = []
   updateNodeCalls: Array<{ path: string; data: Buffer; version?: number }> = []
-  deleteNodeCalls: Array<{ path: string; version?: number }> = []
+  deleteNodeCalls: Array<{
+    path: string
+    version?: number
+    recursive?: boolean
+  }> = []
   aclCalls: Array<{ path: string; acl: Array<{ scheme: string; id: string; permissions: Array<'read' | 'write' | 'create' | 'delete' | 'admin'> }> }> = []
+  private connectionLossListeners = new Set<() => void>()
 
   async connect() {}
 
   async close() {}
+
+  watchConnectionLoss(cb: () => void) {
+    this.connectionLossListeners.add(cb)
+    return () => {
+      this.connectionLossListeners.delete(cb)
+    }
+  }
+
+  emitConnectionLoss() {
+    for (const listener of this.connectionLossListeners) {
+      listener()
+    }
+  }
 
   async getChildren(path: string) {
     this.getChildrenCalls.set(path, (this.getChildrenCalls.get(path) ?? 0) + 1)
@@ -86,7 +104,12 @@ class FakeClient {
     return {
       path,
       data: Buffer.from(`data:${path}`),
-      stat: { version: 1, numChildren: 0 },
+      stat: {
+        version: 1,
+        numChildren: 0,
+        mtime: 1_700_000_700_000,
+        dataLength: `data:${path}`.length,
+      },
       acl: [],
     }
   }
@@ -103,8 +126,15 @@ class FakeClient {
     this.updateNodeCalls.push({ path, data, version })
   }
 
-  async deleteNode(path: string, version?: number) {
-    this.deleteNodeCalls.push({ path, version })
+  async deleteNode(
+    path: string,
+    options?: { version?: number; recursive?: boolean },
+  ) {
+    this.deleteNodeCalls.push({
+      path,
+      version: options?.version,
+      recursive: options?.recursive,
+    })
   }
 
   async setAcl(
@@ -160,7 +190,7 @@ describe('SessionManager', () => {
     await manager.saveAcl('/service', [
       { scheme: 'world', id: 'anyone', permissions: ['read'] },
     ])
-    await manager.delete('/service', 4)
+    await manager.delete('/service', { version: 4 })
     await manager.disconnect()
 
     expect(client.getChildrenCalls.get('/')).toBe(2)
@@ -171,7 +201,7 @@ describe('SessionManager', () => {
       { path: '/service', data: Buffer.from('updated'), version: 3 },
     ])
     expect(client.deleteNodeCalls).toEqual([
-      { path: '/service', version: 4 },
+      { path: '/service', version: 4, recursive: undefined },
     ])
     expect(client.aclCalls).toEqual([
       {
@@ -241,6 +271,38 @@ describe('SessionManager', () => {
     )
     expect(client.getChildrenCalls.get('/a')).toBe(2)
     expect(client.getChildrenCalls.get('/a/b')).toBe(2)
+  })
+
+  it('passes recursive delete intent to the active client', async () => {
+    const client = new FakeClient()
+    const manager = new SessionManager(() => client as never)
+    await manager.connect('local')
+
+    await manager.delete('/a', { recursive: true })
+
+    expect(client.deleteNodeCalls).toEqual([
+      { path: '/a', version: undefined, recursive: true },
+    ])
+  })
+
+  it('emits disconnected and clears the session when the active client reports a connection loss', async () => {
+    const client = new FakeClient()
+    const manager = new SessionManager(() => client as never)
+    const events: RuntimeEvent[] = []
+    manager.subscribe((event) => {
+      events.push(event)
+    })
+
+    await manager.connect('local')
+    await manager.loadChildren('/')
+
+    client.emitConnectionLoss()
+
+    await expect(manager.loadChildren('/')).rejects.toThrow('No active ZooKeeper session')
+    expect(events).toEqual([
+      { type: 'connectionStateChanged', state: 'connected' },
+      { type: 'connectionStateChanged', state: 'disconnected' },
+    ])
   })
 
   it('uses RuntimeEvent on the desktop runtime channel', () => {

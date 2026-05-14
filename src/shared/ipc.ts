@@ -4,6 +4,7 @@ import type {
 } from './models/connection'
 import type {
   AclEntry,
+  NodeMarkColor,
   NodeSnapshot,
   RuntimeEvent,
   TreeNodeRow,
@@ -30,6 +31,9 @@ export const channels = {
   preferencesSetTheme: 'preferences:setTheme',
   preferencesOpenSettings: 'preferences:openSettings',
   preferencesThemeChanged: 'preferences:themeChanged',
+  nodeMarksList: 'nodeMarks:list',
+  nodeMarksSet: 'nodeMarks:set',
+  nodeMarksClear: 'nodeMarks:clear',
   zookeeperDisconnect: 'zookeeper:disconnect',
   zookeeperLoadChildren: 'zookeeper:loadChildren',
   zookeeperOpen: 'zookeeper:open',
@@ -58,12 +62,27 @@ export type InvokeRequestMap = {
   [channels.preferencesGetTheme]: undefined
   [channels.preferencesSetTheme]: PreferencesUpdate
   [channels.preferencesOpenSettings]: undefined
+  [channels.nodeMarksList]: { connectionId: string }
+  [channels.nodeMarksSet]: {
+    connectionId: string
+    path: string
+    color: NodeMarkColor
+  }
+  [channels.nodeMarksClear]: {
+    connectionId: string
+    path: string
+    recursive?: boolean
+  }
   [channels.zookeeperDisconnect]: undefined
   [channels.zookeeperLoadChildren]: { path: string }
   [channels.zookeeperOpen]: { path: string }
   [channels.zookeeperSearch]: { query: string }
   [channels.zookeeperCreate]: { path: string; data: BinaryPayload }
-  [channels.zookeeperDelete]: { path: string; version?: number }
+  [channels.zookeeperDelete]: {
+    path: string
+    version?: number
+    recursive?: boolean
+  }
   [channels.zookeeperUpdate]: {
     path: string
     data: BinaryPayload
@@ -86,6 +105,9 @@ export type InvokeResponseMap = {
   [channels.preferencesGetTheme]: Preferences
   [channels.preferencesSetTheme]: Preferences
   [channels.preferencesOpenSettings]: void
+  [channels.nodeMarksList]: Record<string, NodeMarkColor>
+  [channels.nodeMarksSet]: void
+  [channels.nodeMarksClear]: void
   [channels.zookeeperDisconnect]: void
   [channels.zookeeperLoadChildren]: TreeNodeRow[]
   [channels.zookeeperOpen]: NodeSnapshot
@@ -146,6 +168,17 @@ export interface DesktopApi {
     openSettingsWindow(): Promise<void>
     subscribeTheme(cb: (payload: Preferences) => void): () => void
   }
+  nodeMarks?: {
+    list(
+      connectionId: string,
+    ): Promise<InvokeResponseMap[typeof channels.nodeMarksList]>
+    set(
+      connectionId: string,
+      path: string,
+      color: NodeMarkColor,
+    ): Promise<void>
+    clear(connectionId: string, path: string, recursive?: boolean): Promise<void>
+  }
   zookeeper: {
     disconnect(): Promise<void>
     loadChildren(
@@ -156,7 +189,10 @@ export interface DesktopApi {
       query: string,
     ): Promise<InvokeResponseMap[typeof channels.zookeeperSearch]>
     create(path: string, data: BinaryPayload): Promise<void>
-    delete(path: string, version?: number): Promise<void>
+    delete(
+      path: string,
+      options?: { version?: number; recursive?: boolean },
+    ): Promise<void>
     update(path: string, data: BinaryPayload, version?: number): Promise<void>
     saveAcl(path: string, acl: AclEntry[]): Promise<void>
   }
@@ -198,6 +234,18 @@ export function createDesktopApi(transport: Transport): DesktopApi {
       subscribeTheme: (cb) =>
         transport.on(channels.preferencesThemeChanged, cb),
     },
+    nodeMarks: {
+      list: (connectionId) =>
+        transport.invoke(channels.nodeMarksList, { connectionId }),
+      set: (connectionId, path, color) =>
+        transport.invoke(channels.nodeMarksSet, { connectionId, path, color }),
+      clear: (connectionId, path, recursive) =>
+        transport.invoke(channels.nodeMarksClear, {
+          connectionId,
+          path,
+          recursive,
+        }),
+    },
     zookeeper: {
       disconnect: () => transport.invoke(channels.zookeeperDisconnect, undefined),
       loadChildren: (path) =>
@@ -206,8 +254,12 @@ export function createDesktopApi(transport: Transport): DesktopApi {
       search: (query) => transport.invoke(channels.zookeeperSearch, { query }),
       create: (path, data) =>
         transport.invoke(channels.zookeeperCreate, { path, data }),
-      delete: (path, version) =>
-        transport.invoke(channels.zookeeperDelete, { path, version }),
+      delete: (path, options) =>
+        transport.invoke(channels.zookeeperDelete, {
+          path,
+          version: options?.version,
+          recursive: options?.recursive,
+        }),
       update: (path, data, version) =>
         transport.invoke(channels.zookeeperUpdate, { path, data, version }),
       saveAcl: (path, acl) =>

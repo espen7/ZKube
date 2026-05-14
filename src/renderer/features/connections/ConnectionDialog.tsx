@@ -7,6 +7,7 @@ import { useConnectionsStore } from './useConnectionsStore'
 export function ConnectionDialog() {
   const {
     dialogOpen,
+    editingConnection,
     dialogError,
     submitting,
     closeDialog,
@@ -17,14 +18,20 @@ export function ConnectionDialog() {
   const [name, setName] = useState('')
   const [hosts, setHosts] = useState('')
   const [chroot, setChroot] = useState('')
+  const isEditing = editingConnection !== null
 
   useEffect(() => {
     if (!dialogOpen) {
       setName('')
       setHosts('')
       setChroot('')
+      return
     }
-  }, [dialogOpen])
+
+    setName(editingConnection?.name ?? '')
+    setHosts(editingConnection?.hosts ?? '')
+    setChroot(editingConnection?.chroot ?? '')
+  }, [dialogOpen, editingConnection])
 
   if (!dialogOpen) {
     return null
@@ -43,14 +50,24 @@ export function ConnectionDialog() {
   return (
     <div className="dialog-backdrop">
       <form
-        aria-label={t('dialog.createConnection')}
+        aria-label={t(
+          isEditing ? 'dialog.editConnection' : 'dialog.createConnection',
+        )}
         aria-modal="true"
         className="dialog"
         role="dialog"
         onSubmit={(event) => void handleSubmit(event)}
       >
-        <h3>{t('dialog.createConnection')}</h3>
-        <p>{t('dialog.createDescription')}</p>
+        <h3>
+          {t(isEditing ? 'dialog.editConnection' : 'dialog.createConnection')}
+        </h3>
+        <p>
+          {t(
+            isEditing
+              ? 'dialog.editDescription'
+              : 'dialog.createDescription',
+          )}
+        </p>
 
         <label className="dialog__field">
           <span>{t('dialog.connectionName')}</span>
@@ -98,7 +115,13 @@ export function ConnectionDialog() {
             disabled={submitting}
             type="submit"
           >
-            {submitting ? t('dialog.saving') : t('dialog.saveConnection')}
+            {submitting
+              ? t('dialog.saving')
+              : t(
+                  isEditing
+                    ? 'dialog.saveEditedConnection'
+                    : 'dialog.saveConnection',
+                )}
           </button>
         </div>
       </form>

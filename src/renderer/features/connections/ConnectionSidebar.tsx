@@ -17,6 +17,7 @@ export function ConnectionSidebar() {
     load,
     connect,
     disconnect,
+    openEditDialog,
     deleteConnection,
     feedback,
     activeConnectionId,
@@ -60,6 +61,19 @@ export function ConnectionSidebar() {
     return activeConnectionId === connectionId && connectionState !== 'disconnected'
   }
 
+  function isEditDisabled(connectionId: string) {
+    return activeConnectionId === connectionId && connectionState !== 'disconnected'
+  }
+
+  function handleEdit(connection: StoredConnection) {
+    if (isEditDisabled(connection.id)) {
+      return
+    }
+
+    setContextMenu(null)
+    openEditDialog(connection.id)
+  }
+
   async function handleDelete(connection: StoredConnection) {
     if (isDeleteDisabled(connection.id)) {
       return
@@ -101,11 +115,19 @@ export function ConnectionSidebar() {
               const isHealthy = isActive && connectionState === 'connected'
               const isPending = isActive && transitionInFlight
               const deleteDisabled = isDeleteDisabled(item.id)
+              const editDisabled = isEditDisabled(item.id)
 
               return (
                 <article
                   key={item.id}
-                  className="connection-card"
+                  className={[
+                    'connection-card',
+                    isActive ? 'connection-card--active' : '',
+                    isHealthy ? 'connection-card--healthy' : '',
+                    isPending ? 'connection-card--pending' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                   onContextMenu={(event) => {
                     event.preventDefault()
                     setContextMenu({
@@ -171,6 +193,18 @@ export function ConnectionSidebar() {
                       role="menu"
                       style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
                     >
+                      <button
+                        aria-disabled={editDisabled ? 'true' : 'false'}
+                        className="context-menu__item"
+                        role="menuitem"
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          handleEdit(item)
+                        }}
+                      >
+                        {t('connection.editAction')}
+                      </button>
                       <button
                         aria-disabled={deleteDisabled ? 'true' : 'false'}
                         className="context-menu__item"

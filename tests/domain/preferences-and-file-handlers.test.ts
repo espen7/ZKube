@@ -102,6 +102,15 @@ vi.mock('../../src/infrastructure/storage/connection-repository', () => ({
   ConnectionRepository: class {},
 }))
 
+vi.mock('../../src/infrastructure/storage/node-mark-repository', () => ({
+  NodeMarkRepository: class {
+    list = vi.fn().mockResolvedValue({})
+    set = vi.fn()
+    clear = vi.fn()
+    clearConnection = vi.fn()
+  },
+}))
+
 vi.mock('../../src/infrastructure/storage/preferences-repository', () => ({
   PreferencesRepository: class {
     getPreferences = vi.fn().mockResolvedValue({})

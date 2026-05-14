@@ -1,9 +1,14 @@
 import { useSyncExternalStore } from 'react'
 
-import type { RuntimeEvent, TreeNodeRow } from '../../../shared/models/node'
+import type {
+  NodeMarkColor,
+  RuntimeEvent,
+  TreeNodeRow,
+} from '../../../shared/models/node'
 
 type TreeState = {
   rowsByPath: Record<string, TreeNodeRow[]>
+  marksByPath: Record<string, NodeMarkColor>
   expandedPaths: string[]
   loadingPaths: string[]
   query: string
@@ -13,6 +18,7 @@ type TreeState = {
 
 const initialState: TreeState = {
   rowsByPath: {},
+  marksByPath: {},
   expandedPaths: [],
   loadingPaths: [],
   query: '',
@@ -97,6 +103,10 @@ function parentPath(path: string) {
   return `/${segments.slice(0, -1).join('/')}`
 }
 
+function joinChildPath(parent: string, childName: string) {
+  return parent === '/' ? `/${childName}` : `${parent}/${childName}`
+}
+
 function cancelLoadsForPath(targetPath: string) {
   for (const path of Array.from(loadRequestIds.keys())) {
     if (isSameOrDescendantPath(path, targetPath)) {
@@ -172,6 +182,18 @@ function invalidateBranch(targetPath: string, options?: { removePath?: boolean }
   })
 }
 
+function filterMarks(targetPath: string, removePath = true) {
+  return Object.fromEntries(
+    Object.entries(state.marksByPath).filter(([path]) => {
+      if (removePath) {
+        return !isSameOrDescendantPath(path, targetPath)
+      }
+
+      return path !== targetPath
+    }),
+  )
+}
+
 async function loadChildren(path: string) {
   if (!window.zkube?.zookeeper.loadChildren || isLoading(path)) {
     return
@@ -210,6 +232,75 @@ async function loadChildren(path: string) {
 
 async function loadRoot() {
   await loadChildren('/')
+}
+
+async function refreshTree() {
+  if (!window.zkube?.zookeeper.loadChildren) {
+    return
+  }
+
+  const expandedSet = new Set(state.expandedPaths)
+  const nextRowsByPath: Record<string, TreeNodeRow[]> = {}
+  const nextExpandedPaths: string[] = []
+
+  async function fetchBranch(path: string): Promise<TreeNodeRow[] | null> {
+    const requestId = beginLoad(path)
+
+    try {
+      const rows = await window.zkube.zookeeper.loadChildren(path)
+      if (!isCurrentLoad(path, requestId)) {
+        return null
+      }
+
+      completeLoad(path, requestId)
+      setState({
+        loadingPaths: state.loadingPaths.filter((entry) => entry !== path),
+      })
+      return rows
+    } catch (error) {
+      if (!isCurrentLoad(path, requestId)) {
+        return null
+      }
+
+      completeLoad(path, requestId)
+      setState({
+        feedback: getErrorMessage(error),
+        loadingPaths: state.loadingPaths.filter((entry) => entry !== path),
+      })
+      return null
+    }
+  }
+
+  async function reloadExpandedBranches(rows: TreeNodeRow[]) {
+    for (const row of rows) {
+      if (!expandedSet.has(row.path)) {
+        continue
+      }
+
+      nextExpandedPaths.push(row.path)
+      const childRows = await fetchBranch(row.path)
+      if (!childRows) {
+        continue
+      }
+
+      nextRowsByPath[row.path] = childRows
+      await reloadExpandedBranches(childRows)
+    }
+  }
+
+  const rootRows = await fetchBranch('/')
+  if (!rootRows) {
+    return
+  }
+
+  nextRowsByPath['/'] = rootRows
+  await reloadExpandedBranches(rootRows)
+
+  setState({
+    rowsByPath: nextRowsByPath,
+    expandedPaths: nextExpandedPaths,
+    feedback: null,
+  })
 }
 
 async function toggleNode(path: string) {
@@ -274,57 +365,120 @@ async function runDeepSearch() {
   }
 }
 
-async function createDemoNode() {
-  if (!window.zkube?.zookeeper.create) {
+async function loadNodeMarks(connectionId: string | null) {
+  if (!connectionId || !window.zkube?.nodeMarks?.list) {
+    setState({ marksByPath: {} })
     return
   }
 
   try {
-    await window.zkube.zookeeper.create(
-      '/demo-node',
-      new TextEncoder().encode('demo value'),
-    )
+    const marksByPath = await window.zkube.nodeMarks.list(connectionId)
+    setState({ marksByPath })
+  } catch (error) {
+    setState({ feedback: getErrorMessage(error) })
+  }
+}
 
-    const rootRows = state.rowsByPath['/'] ?? []
-    const nextRootRows = rootRows.some((row) => row.path === '/demo-node')
-      ? rootRows
-      : [
-          ...rootRows,
-          {
-            path: '/demo-node',
-            name: 'demo-node',
-            hasChildren: false,
-            dataLength: 'demo value'.length,
-            mtime: Date.now(),
-          },
-        ]
+function clearNodeMarksState() {
+  setState({ marksByPath: {} })
+}
 
+async function setNodeMark(
+  connectionId: string | null,
+  path: string,
+  color: NodeMarkColor,
+) {
+  if (!connectionId || !window.zkube?.nodeMarks?.set) {
+    return
+  }
+
+  try {
+    await window.zkube.nodeMarks.set(connectionId, path, color)
     setState({
-      rowsByPath: {
-        ...state.rowsByPath,
-        ...(state.rowsByPath['/'] ? { '/': nextRootRows } : {}),
+      marksByPath: {
+        ...state.marksByPath,
+        [path]: color,
       },
-      feedback: 'Created demo node /demo-node',
+      feedback: null,
     })
   } catch (error) {
     setState({ feedback: getErrorMessage(error) })
   }
 }
 
-async function deleteDemoNode() {
-  if (!window.zkube?.zookeeper.delete) {
+async function clearNodeMark(
+  connectionId: string | null,
+  path: string,
+  recursive = false,
+) {
+  if (!connectionId || !window.zkube?.nodeMarks?.clear) {
     return
   }
 
   try {
-    await window.zkube.zookeeper.delete('/demo-node')
-    invalidateBranch('/demo-node', { removePath: true })
-
+    await window.zkube.nodeMarks.clear(connectionId, path, recursive)
     setState({
-      feedback: 'Deleted demo node /demo-node',
+      marksByPath: recursive
+        ? filterMarks(path)
+        : filterMarks(path, false),
+      feedback: null,
     })
   } catch (error) {
     setState({ feedback: getErrorMessage(error) })
+  }
+}
+
+async function createChildNode(
+  parentNodePath: string,
+  childName: string,
+  initialData: string,
+) {
+  if (!window.zkube?.zookeeper.create) {
+    return false
+  }
+
+  const trimmedName = childName.trim()
+  if (!trimmedName) {
+    setState({ feedback: 'Node name is required.' })
+    return false
+  }
+
+  if (trimmedName.includes('/')) {
+    setState({ feedback: 'Node name cannot contain /.' })
+    return false
+  }
+
+  try {
+    await window.zkube.zookeeper.create(
+      joinChildPath(parentNodePath, trimmedName),
+      new TextEncoder().encode(initialData),
+    )
+    setState({ feedback: null })
+    return true
+  } catch (error) {
+    setState({ feedback: getErrorMessage(error) })
+    return false
+  }
+}
+
+async function deleteNode(
+  path: string,
+  options?: { version?: number; recursive?: boolean },
+) {
+  if (!window.zkube?.zookeeper.delete) {
+    return false
+  }
+
+  try {
+    await window.zkube.zookeeper.delete(path, options)
+    setState({
+      marksByPath: filterMarks(path),
+      feedback: null,
+    })
+    return true
+  } catch (error) {
+    setState({ feedback: getErrorMessage(error) })
+    return false
   }
 }
 
@@ -373,6 +527,7 @@ async function handleRuntimeEvent(event: RuntimeEvent) {
       return
     case 'nodeDeleted':
       cancelPendingSearches()
+      setState({ marksByPath: filterMarks(event.path) })
       invalidateBranch(event.path, { removePath: true })
       return
     case 'nodeDataChanged':
@@ -387,11 +542,16 @@ export function useTreeStore() {
   return {
     ...snapshot,
     loadRoot,
+    refreshTree,
     toggleNode,
     setQuery,
     runDeepSearch,
-    createDemoNode,
-    deleteDemoNode,
+    loadNodeMarks,
+    clearNodeMarksState,
+    setNodeMark,
+    clearNodeMark,
+    createChildNode,
+    deleteNode,
     handleRuntimeEvent,
   }
 }

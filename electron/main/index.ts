@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { app, ipcMain } from 'electron'
+import { app, ipcMain, Menu } from 'electron'
 
 import { channels } from '../../src/shared/ipc'
 import { registerHandlers } from './ipc/register-handlers'
@@ -8,6 +8,7 @@ import { configureRendererTarget, createMainWindow } from './window'
 
 async function bootstrap() {
   const rendererHtmlPath = path.join(app.getAppPath(), 'dist', 'index.html')
+  Menu.setApplicationMenu(null)
   configureRendererTarget({
     devServerUrl: process.env.VITE_DEV_SERVER_URL,
     htmlPath: rendererHtmlPath,

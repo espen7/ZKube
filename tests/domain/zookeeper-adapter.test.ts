@@ -21,7 +21,12 @@ type FakeNodeClient = {
     cb: (
       error: unknown,
       data?: Buffer,
-      stat?: { version: number; numChildren: number },
+      stat?: {
+        version: number
+        numChildren: number
+        mtime?: number
+        dataLength?: number
+      },
     ) => void,
   ): void
   getACL(
@@ -95,7 +100,12 @@ function makeFactory(): FactoryResult {
       cb(null, ['app', 'config'])
     },
     getData(path, cb) {
-      cb(null, Buffer.from(`data:${path}`), { version: 7, numChildren: 2 })
+      cb(null, Buffer.from(`data:${path}`), {
+        version: 7,
+        numChildren: 2,
+        mtime: 1_700_000_800_000,
+        dataLength: `data:${path}`.length,
+      })
     },
     getACL(_path, cb) {
       cb(null, [
@@ -127,6 +137,7 @@ function makeFactory(): FactoryResult {
 
   const exception = {
     NO_NODE: -101,
+    NOT_EMPTY: -111,
     NODE_EXISTS: -110,
     BAD_VERSION: -103,
     CONNECTION_LOSS: -4,
@@ -196,7 +207,12 @@ describe('NodeZkClient', () => {
     expect(snapshot).toEqual({
       path: '/config',
       data: Buffer.from('data:/config'),
-      stat: { version: 7, numChildren: 2 },
+      stat: {
+        version: 7,
+        numChildren: 2,
+        mtime: 1_700_000_800_000,
+        dataLength: 12,
+      },
       acl: [
         {
           scheme: 'world',
@@ -216,14 +232,14 @@ describe('NodeZkClient', () => {
         name: 'app',
         hasChildren: true,
         dataLength: 9,
-        mtime: null,
+        mtime: 1_700_000_800_000,
       },
       {
         path: '/config',
         name: 'config',
         hasChildren: true,
         dataLength: 12,
-        mtime: null,
+        mtime: 1_700_000_800_000,
       },
     ])
   })
@@ -247,6 +263,7 @@ describe('NodeZkClient', () => {
   it('maps ZooKeeper exception codes to stable app errors', () => {
     const exception = {
       NO_NODE: -101,
+      NOT_EMPTY: -111,
       NODE_EXISTS: -110,
       BAD_VERSION: -103,
       CONNECTION_LOSS: -4,
@@ -255,6 +272,9 @@ describe('NodeZkClient', () => {
     expect(
       mapZooKeeperError({ getCode: () => exception.NO_NODE }, exception),
     ).toBe('NODE_NOT_FOUND')
+    expect(
+      mapZooKeeperError({ getCode: () => exception.NOT_EMPTY }, exception),
+    ).toBe('NODE_NOT_EMPTY')
     expect(
       mapZooKeeperError({ getCode: () => exception.NODE_EXISTS }, exception),
     ).toBe('NODE_ALREADY_EXISTS')
@@ -283,9 +303,37 @@ describe('NodeZkClient', () => {
 
     await client.connect()
 
-    await expect(client.deleteNode('/config', 3)).rejects.toMatchObject({
+    await expect(
+      client.deleteNode('/config', { version: 3 }),
+    ).rejects.toMatchObject({
       code: 'BAD_VERSION',
     })
+  })
+
+  it('deletes subtrees from deepest child to root when recursive delete is requested', async () => {
+    const factory = makeFactory()
+    const removedPaths: string[] = []
+    factory.client.listSubTreeBFS = (_path, cb) => {
+      cb(null, ['/config', '/config/service'])
+    }
+    factory.client.remove = (path, _version, cb) => {
+      removedPaths.push(path)
+      cb(null)
+    }
+    const client = new NodeZkClient(
+      {
+        hosts: 'zk-1:2181',
+      },
+      () => factory,
+    )
+
+    await client.connect()
+    await client.deleteNode('/config', { recursive: true })
+
+    expect(removedPaths).toEqual([
+      '/config/service',
+      '/config',
+    ])
   })
 
   it('keeps tree rows visible when child metadata lookup fails', async () => {
@@ -299,7 +347,12 @@ describe('NodeZkClient', () => {
         return
       }
 
-      cb(null, Buffer.from(`data:${path}`), { version: 2, numChildren: 0 })
+      cb(null, Buffer.from(`data:${path}`), {
+        version: 2,
+        numChildren: 0,
+        mtime: 1_700_000_900_000,
+        dataLength: `data:${path}`.length,
+      })
     }
     const client = new NodeZkClient(
       {
@@ -316,7 +369,7 @@ describe('NodeZkClient', () => {
         name: 'healthy',
         hasChildren: false,
         dataLength: 13,
-        mtime: null,
+        mtime: 1_700_000_900_000,
       },
       {
         path: '/broken',

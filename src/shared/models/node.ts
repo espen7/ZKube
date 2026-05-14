@@ -1,6 +1,8 @@
 export type NodeStat = {
   version: number
   numChildren: number
+  mtime: number | null
+  dataLength: number | null
 }
 
 export type TreeNodeRow = {
@@ -9,6 +11,14 @@ export type TreeNodeRow = {
   hasChildren: boolean
   dataLength: number | null
   mtime: number | null
+}
+
+export type NodeMarkColor = 'red' | 'orange' | 'yellow' | 'green'
+
+export type NodeMarkRecord = {
+  connectionId: string
+  path: string
+  color: NodeMarkColor
 }
 
 export type AclEntry = {

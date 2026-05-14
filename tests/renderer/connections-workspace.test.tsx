@@ -201,6 +201,55 @@ describe('Connections workspace', () => {
     expect(window.zkube.connections.delete).toHaveBeenCalledWith('staging-zk')
   })
 
+  it('edits a disconnected connection from the right-click menu', async () => {
+    const editedConnection: StoredConnection = {
+      ...savedConnections[1],
+      name: 'Staging Cluster Updated',
+      hosts: '10.0.0.10:2181',
+      chroot: '/blue',
+      updatedAt: '2026-05-14T10:30:00.000Z',
+    }
+
+    window.zkube.connections.save = vi.fn().mockResolvedValue(editedConnection)
+
+    render(<App />)
+
+    const card = (await screen.findByText('Staging Cluster')).closest('article')
+    expect(card).not.toBeNull()
+
+    fireEvent.contextMenu(card as HTMLElement)
+    fireEvent.click(screen.getByRole('menuitem', { name: /edit connection/i }))
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: /connection name/i })).toHaveValue(
+      'Staging Cluster',
+    )
+    expect(
+      screen.getByRole('textbox', { name: /connection hosts/i }),
+    ).toHaveValue('10.0.0.8:2181,10.0.0.9:2181')
+
+    fireEvent.change(screen.getByRole('textbox', { name: /connection name/i }), {
+      target: { value: editedConnection.name },
+    })
+    fireEvent.change(screen.getByRole('textbox', { name: /connection hosts/i }), {
+      target: { value: editedConnection.hosts },
+    })
+    fireEvent.change(screen.getByRole('textbox', { name: /connection chroot/i }), {
+      target: { value: editedConnection.chroot },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /save connection/i }))
+
+    expect(window.zkube.connections.save).toHaveBeenCalledWith({
+      id: 'staging-zk',
+      name: editedConnection.name,
+      hosts: editedConnection.hosts,
+      chroot: editedConnection.chroot,
+      sessionTimeoutMs: savedConnections[1].sessionTimeoutMs,
+    })
+    expect(await screen.findByText(editedConnection.name)).toBeInTheDocument()
+    expect(screen.queryByText('Staging Cluster')).not.toBeInTheDocument()
+  })
+
   it('disables deleting the active connection from the right-click menu', async () => {
     render(<App />)
 
@@ -218,6 +267,9 @@ describe('Connections workspace', () => {
 
     expect(
       screen.getByRole('menuitem', { name: /delete connection/i }),
+    ).toHaveAttribute('aria-disabled', 'true')
+    expect(
+      screen.getByRole('menuitem', { name: /edit connection/i }),
     ).toHaveAttribute('aria-disabled', 'true')
     expect(window.zkube.connections.delete).not.toHaveBeenCalled()
   })
