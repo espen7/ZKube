@@ -1,27 +1,34 @@
 import { useEffect, useState } from 'react'
 
+import { useConnectionsStore } from '../connections/useConnectionsStore'
+import { getConnectionRuntimeMessage } from './connection-state'
 import type { RuntimeEvent } from '../../../shared/models/node'
+import { useThemeStore } from '../settings/useThemeStore'
 
-type ConnectionState = 'connected' | 'disconnected' | 'reconnecting'
-
-function getRuntimeMessage(event: RuntimeEvent) {
+function getRuntimeMessage(event: RuntimeEvent, language: 'en' | 'zh-CN') {
   switch (event.type) {
     case 'connectionStateChanged':
-      return `Connection ${event.state}`
+      return getConnectionRuntimeMessage(event.state, language)
     case 'nodeDataChanged':
-      return `Data changed: ${event.path}`
+      return language === 'zh-CN'
+        ? `数据已变更：${event.path}`
+        : `Data changed: ${event.path}`
     case 'nodeChildrenChanged':
-      return `Children changed: ${event.path}`
+      return language === 'zh-CN'
+        ? `子节点已变更：${event.path}`
+        : `Children changed: ${event.path}`
     case 'nodeDeleted':
-      return `Node deleted: ${event.path}`
+      return language === 'zh-CN'
+        ? `节点已删除：${event.path}`
+        : `Node deleted: ${event.path}`
   }
 }
 
 export function useRuntimeEvents() {
-  const [connectionState, setConnectionState] =
-    useState<ConnectionState>('disconnected')
+  const { connectionState, handleRuntimeEvent } = useConnectionsStore()
   const [watcherCount, setWatcherCount] = useState(0)
-  const [message, setMessage] = useState<string | null>(null)
+  const [lastEvent, setLastEvent] = useState<RuntimeEvent | null>(null)
+  const { language } = useThemeStore()
 
   useEffect(() => {
     if (!window.zkube?.runtime.subscribe) {
@@ -30,22 +37,22 @@ export function useRuntimeEvents() {
 
     const unsubscribe = window.zkube.runtime.subscribe((event) => {
       if (event.type === 'connectionStateChanged') {
-        setConnectionState(event.state)
+        handleRuntimeEvent(event)
         setWatcherCount(0)
-        setMessage(getRuntimeMessage(event))
+        setLastEvent(event)
         return
       }
 
       setWatcherCount((count) => count + 1)
-      setMessage(getRuntimeMessage(event))
+      setLastEvent(event)
     })
 
     return typeof unsubscribe === 'function' ? unsubscribe : undefined
-  }, [])
+  }, [handleRuntimeEvent])
 
   return {
     connectionState,
     watcherCount,
-    message,
+    message: lastEvent ? getRuntimeMessage(lastEvent, language) : null,
   }
 }

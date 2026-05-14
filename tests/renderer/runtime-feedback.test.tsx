@@ -88,7 +88,7 @@ describe('runtime feedback', () => {
       />,
     )
 
-    expect(screen.getByText('connected')).toBeInTheDocument()
+    expect(screen.getByText('Healthy')).toBeInTheDocument()
     expect(screen.getByText('watchers: 3')).toBeInTheDocument()
     expect(screen.getByText('Children changed: /services')).toBeInTheDocument()
   })
@@ -108,8 +108,9 @@ describe('runtime feedback', () => {
     })
 
     const statusBar = screen.getByLabelText('Runtime status bar')
-    expect(within(statusBar).getByText('connected')).toBeInTheDocument()
+    expect(within(statusBar).getByText('Healthy')).toBeInTheDocument()
     expect(within(statusBar).getByText('watchers: 0')).toBeInTheDocument()
+    expect(within(statusBar).getByText('Connection healthy')).toBeInTheDocument()
 
     await act(async () => {
       emitRuntimeEvent({
@@ -120,8 +121,6 @@ describe('runtime feedback', () => {
 
     expect(within(statusBar).getByText('watchers: 1')).toBeInTheDocument()
     expect(within(statusBar).getByText('Node deleted: /services/api')).toBeInTheDocument()
-    expect(screen.getByLabelText('Runtime toast region')).toHaveTextContent(
-      'Node deleted: /services/api',
-    )
+    expect(screen.queryByLabelText('Runtime toast region')).not.toBeInTheDocument()
   })
 })

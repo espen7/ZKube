@@ -1,15 +1,29 @@
+import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-import { BrowserWindow, ipcMain } from 'electron'
+import {
+  BrowserWindow,
+  dialog,
+  ipcMain,
+  nativeTheme,
+} from 'electron'
 
 import { ConnectionService } from '../../../src/domain/connections/connection-service'
 import { SessionManager } from '../../../src/domain/zookeeper/session-manager'
-import { NodeZkClient } from '../../../src/infrastructure/zookeeper/node-zk-client'
 import { SecretStore } from '../../../src/infrastructure/security/secret-store'
 import { ConnectionRepository } from '../../../src/infrastructure/storage/connection-repository'
+import { PreferencesRepository } from '../../../src/infrastructure/storage/preferences-repository'
+import { NodeZkClient } from '../../../src/infrastructure/zookeeper/node-zk-client'
 import { channels } from '../../../src/shared/ipc'
-import type { RuntimeEvent } from '../../../src/shared/models/node'
 import type { StoredConnection } from '../../../src/shared/models/connection'
+import type { RuntimeEvent } from '../../../src/shared/models/node'
+import {
+  DEFAULT_FONT_SIZE,
+  DEFAULT_LANGUAGE,
+  type Preferences,
+  type Theme,
+} from '../../../src/shared/models/preferences'
+import { createOrFocusSettingsWindow } from '../window'
 
 export function registerHandlers(userDataPath: string): void {
   const repository = new ConnectionRepository(
@@ -17,6 +31,9 @@ export function registerHandlers(userDataPath: string): void {
   )
   const secretStore = new SecretStore(
     path.join(userDataPath, 'secrets', 'connection-secrets.json'),
+  )
+  const preferencesRepository = new PreferencesRepository(
+    path.join(userDataPath, 'preferences.json'),
   )
   const connectionService = new ConnectionService(repository, secretStore)
 
@@ -29,9 +46,27 @@ export function registerHandlers(userDataPath: string): void {
     return new NodeZkClient(activeConnection)
   })
 
-  const sendRuntimeEvent = (event: RuntimeEvent) => {
+  const sendEventToAllWindows = <TPayload,>(
+    channel: string,
+    payload: TPayload,
+  ) => {
     for (const window of BrowserWindow.getAllWindows()) {
-      window.webContents.send(channels.runtimeEvent, event)
+      window.webContents.send(channel, payload)
+    }
+  }
+
+  const sendRuntimeEvent = (event: RuntimeEvent) => {
+    sendEventToAllWindows(channels.runtimeEvent, event)
+  }
+
+  const resolvePreferences = async (): Promise<Preferences> => {
+    const savedPreferences = await preferencesRepository.getPreferences()
+    const fallbackTheme: Theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+
+    return {
+      theme: savedPreferences.theme ?? fallbackTheme,
+      language: savedPreferences.language ?? DEFAULT_LANGUAGE,
+      fontSize: savedPreferences.fontSize ?? DEFAULT_FONT_SIZE,
     }
   }
 
@@ -41,10 +76,55 @@ export function registerHandlers(userDataPath: string): void {
   ipcMain.handle(channels.connectionSave, (_event, draft) =>
     connectionService.save(draft),
   )
+  ipcMain.handle(channels.connectionDelete, async (_event, payload) => {
+    if (activeConnection?.id === payload.connectionId) {
+      throw new Error('Disconnect the active connection before deleting it.')
+    }
+
+    await connectionService.delete(payload.connectionId)
+  })
   ipcMain.handle(channels.connectionExport, () => connectionService.exportAll())
   ipcMain.handle(channels.connectionImport, (_event, payload) =>
     connectionService.importJson(payload.json),
   )
+  ipcMain.handle(channels.connectionExportToFile, async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Export ZKube connections',
+      buttonLabel: 'Select folder',
+      properties: ['openDirectory', 'createDirectory'],
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null
+    }
+
+    const exportPath = path.join(result.filePaths[0], 'zkube-connections.json')
+    await writeFile(exportPath, await connectionService.exportAll(), 'utf8')
+
+    return {
+      filePath: exportPath,
+    }
+  })
+  ipcMain.handle(channels.connectionImportFromFile, async () => {
+    const result = await dialog.showOpenDialog({
+      title: 'Import ZKube connections',
+      buttonLabel: 'Import JSON',
+      filters: [
+        {
+          name: 'JSON files',
+          extensions: ['json'],
+        },
+      ],
+      properties: ['openFile'],
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return null
+    }
+
+    const json = await readFile(result.filePaths[0], 'utf8')
+    return connectionService.importJson(json)
+  })
   ipcMain.handle(channels.connectionConnect, async (_event, payload) => {
     const hadActiveConnection = activeConnection !== null
     const connection = await findConnection(connectionService, payload.connectionId)
@@ -83,7 +163,23 @@ export function registerHandlers(userDataPath: string): void {
       state: 'connected',
     })
   })
+  ipcMain.handle(channels.preferencesGetTheme, async () => resolvePreferences())
+  ipcMain.handle(channels.preferencesSetTheme, async (_event, payload) => {
+    const current = await resolvePreferences()
+    const nextPreferences: Preferences = {
+      theme: payload.theme ?? current.theme,
+      language: payload.language ?? current.language,
+      fontSize: payload.fontSize ?? current.fontSize,
+    }
 
+    await preferencesRepository.savePreferences(nextPreferences)
+    sendEventToAllWindows(channels.preferencesThemeChanged, nextPreferences)
+
+    return nextPreferences
+  })
+  ipcMain.handle(channels.preferencesOpenSettings, async () => {
+    await createOrFocusSettingsWindow()
+  })
   ipcMain.handle(channels.zookeeperDisconnect, async () => {
     await sessionManager.disconnect()
     activeConnection = null

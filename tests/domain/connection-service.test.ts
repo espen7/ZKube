@@ -154,6 +154,24 @@ describe('ConnectionService', () => {
     expect(repo.data).toEqual([])
     expect(repo.saves.at(-1) ?? []).toEqual([])
   })
+
+  it('removes a saved connection and its secret material', async () => {
+    const repo = new MemoryRepository()
+    const secretStore = new MemorySecretStore()
+    const service = new ConnectionService(repo as never, secretStore as never)
+
+    await service.save({
+      id: 'local',
+      name: 'Local ZK',
+      hosts: '127.0.0.1:2181',
+      authSecret: 'digest-user:pwd',
+    })
+
+    await service.delete('local')
+
+    expect(repo.data).toEqual([])
+    expect(await secretStore.get('connection:local:auth')).toBeNull()
+  })
 })
 
 describe('SecretStore', () => {

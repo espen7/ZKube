@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 
+import { useI18n } from '../../use-i18n'
 import { useWorkbenchStore } from '../../stores/useWorkbenchStore'
 import { TreeSearchBar } from './TreeSearchBar'
 import { useTreeStore } from './useTreeStore'
@@ -40,6 +41,8 @@ function TreeBranch({
   onToggle,
   onOpen,
 }: TreeBranchProps) {
+  const { t } = useI18n()
+
   if (!shouldRenderPath(path, query, childrenByPath)) {
     return null
   }
@@ -58,7 +61,7 @@ function TreeBranch({
         }}
       >
         <button type="button" onClick={() => void onToggle(path)}>
-          {isExpanded ? '收起' : '展开'}
+          {isExpanded ? t('tree.collapse') : t('tree.expand')}
         </button>
         <button type="button" onClick={() => onOpen(path)}>
           {path}
@@ -85,6 +88,7 @@ function TreeBranch({
 }
 
 export function TreePanel() {
+  const { t } = useI18n()
   const openNode = useWorkbenchStore((store) => store.openNode)
   const {
     childrenByPath,
@@ -118,89 +122,90 @@ export function TreePanel() {
   }, [handleRuntimeEvent])
 
   return (
-    <aside className="panel" aria-label="节点树面板">
+    <aside className="panel tree-panel" aria-label={t('panel.nodes')}>
       <div className="panel__header">
         <div>
-          <div className="panel__eyebrow">Tree</div>
-          <h2 className="panel__title">节点树</h2>
+          <div className="panel__eyebrow">{t('panel.tree')}</div>
+          <h2 className="panel__title">{t('panel.nodes')}</h2>
         </div>
         <div className="panel__actions">
           <button type="button" onClick={() => openNode('/')}>
-            Open /
+            {t('tree.openRoot')}
           </button>
           <button type="button" onClick={() => void loadRoot()}>
-            加载根节点
+            {t('tree.loadRoot')}
           </button>
           <button type="button" onClick={() => void createDemoNode()}>
-            演示创建
+            {t('tree.demoCreate')}
           </button>
           <button type="button" onClick={() => void deleteDemoNode()}>
-            演示删除
+            {t('tree.demoDelete')}
           </button>
         </div>
       </div>
-      <div className="panel__body">
+      <div className="panel__body tree-panel__body">
         <TreeSearchBar
           query={query}
           onQueryChange={setQuery}
           onDeepSearch={() => void runDeepSearch()}
         />
+        <div aria-label="Tree content region" className="tree-panel__content">
+          {feedback ? (
+            <div className="sidebar-feedback" role="status">
+              {feedback}
+            </div>
+          ) : null}
 
-        {feedback ? (
-          <div className="sidebar-feedback" role="status">
-            {feedback}
-          </div>
-        ) : null}
+          {loadingPaths.includes('/') ? (
+            <div className="muted">{t('tree.loadingRoot')}</div>
+          ) : null}
 
-        {loadingPaths.includes('/') ? (
-          <div className="muted">正在加载根节点...</div>
-        ) : null}
-
-        {rootChildren.length === 0 ? (
-          <div className="placeholder-row">先加载根节点，再展开需要的目录。</div>
-        ) : (
-          <ul
-            aria-label="已加载节点"
-            className="sidebar-list"
-            style={{ listStyle: 'none', margin: 0, padding: 0 }}
-          >
-            {rootVisible.length === 0 ? (
-              <li className="placeholder-row">当前筛选条件下没有已加载节点。</li>
-            ) : (
-              rootVisible.map((path) => (
-                <TreeBranch
-                  key={path}
-                  path={path}
-                  depth={0}
-                  expandedPaths={expandedPaths}
-                  childrenByPath={childrenByPath}
-                  query={query}
-                  onToggle={toggleNode}
-                  onOpen={openNode}
-                />
-              ))
-            )}
-          </ul>
-        )}
-
-        {searchResults.length > 0 ? (
-          <div>
-            <div className="muted">深度搜索结果</div>
+          {rootChildren.length === 0 ? (
+            <div className="placeholder-row">{t('tree.loadRootHint')}</div>
+          ) : (
             <ul
-              aria-label="深度搜索结果"
+              aria-label="Loaded tree nodes"
               className="sidebar-list"
-              style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}
+              style={{ listStyle: 'none', margin: 0, padding: 0 }}
             >
-              {searchResults.map((path) => (
-                <li key={path} className="placeholder-row">
-                  <button type="button" onClick={() => openNode(path)}>
-                    {path}
-                  </button>
-                </li>
-              ))}
+              {rootVisible.length === 0 ? (
+                <li className="placeholder-row">{t('tree.noLoadedNodes')}</li>
+              ) : (
+                rootVisible.map((path) => (
+                  <TreeBranch
+                    key={path}
+                    path={path}
+                    depth={0}
+                    expandedPaths={expandedPaths}
+                    childrenByPath={childrenByPath}
+                    query={query}
+                    onToggle={toggleNode}
+                    onOpen={openNode}
+                  />
+                ))
+              )}
             </ul>
-          </div>
-        ) : null}
+          )}
+
+          {searchResults.length > 0 ? (
+            <div>
+              <div className="muted">{t('tree.searchResults')}</div>
+              <ul
+                aria-label="Deep search results"
+                className="sidebar-list"
+                style={{ listStyle: 'none', margin: '8px 0 0', padding: 0 }}
+              >
+                {searchResults.map((path) => (
+                  <li key={path} className="placeholder-row">
+                    <button type="button" onClick={() => openNode(path)}>
+                      {path}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
       </div>
     </aside>
   )

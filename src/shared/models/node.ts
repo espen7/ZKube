@@ -16,11 +16,17 @@ export type NodeSnapshot = {
   acl: AclEntry[]
 }
 
+export type ConnectionState =
+  | 'connecting'
+  | 'connected'
+  | 'disconnected'
+  | 'reconnecting'
+
 export type RuntimeEvent =
   | { type: 'nodeDataChanged'; path: string }
   | { type: 'nodeChildrenChanged'; path: string }
   | { type: 'nodeDeleted'; path: string }
   | {
       type: 'connectionStateChanged'
-      state: 'connected' | 'disconnected' | 'reconnecting'
+      state: ConnectionState
     }

@@ -69,6 +69,34 @@ export class ConnectionService {
     return this.repo.list()
   }
 
+  async delete(connectionId: string): Promise<void> {
+    const all = await this.repo.list()
+    const existing = all.find((item) => item.id === connectionId)
+    if (!existing) {
+      return
+    }
+
+    const next = all.filter((item) => item.id !== connectionId)
+    const secretKey = `connection:${connectionId}:auth`
+
+    await this.repo.save(next)
+
+    try {
+      await this.secrets.delete(secretKey)
+    } catch (error) {
+      try {
+        await this.repo.save(all)
+      } catch (rollbackError) {
+        throw new Error(
+          'Failed to rollback connection metadata after secret deletion failure',
+          { cause: rollbackError },
+        )
+      }
+
+      throw error
+    }
+  }
+
   async getSecret(connectionId: string): Promise<string | null> {
     return this.secrets.get(`connection:${connectionId}:auth`)
   }

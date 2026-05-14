@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 
+import { useI18n } from '../../use-i18n'
 import { useWorkbenchStore } from '../../stores/useWorkbenchStore'
 import { NodeAclEditor } from './NodeAclEditor'
 import { NodeEditor } from './NodeEditor'
@@ -7,6 +8,7 @@ import { NodeMetaPanel } from './NodeMetaPanel'
 import { formatJson, formatXml } from './formatters'
 
 export function NodeWorkbench() {
+  const { t } = useI18n()
   const {
     activePath,
     tabs,
@@ -42,18 +44,16 @@ export function NodeWorkbench() {
 
   if (!activeTab) {
     return (
-      <section aria-label="Node workbench" style={{ width: '100%' }}>
-        <section className="workspace-card" aria-label="Empty node workbench">
+      <section aria-label="Node workbench" className="workspace-shell">
+        <section className="workspace-card workspace-card--pane" aria-label="Empty node workbench">
           <div className="panel__header">
             <div>
-              <div className="panel__eyebrow">Workbench</div>
-              <h2 className="panel__title">Node tabs</h2>
+              <div className="panel__eyebrow">{t('workbench.eyebrow')}</div>
+              <h2 className="panel__title">{t('workbench.title')}</h2>
             </div>
           </div>
-          <div className="panel__body">
-            <div className="placeholder-row">
-              Open a node from the tree or search results to start editing.
-            </div>
+          <div aria-label="Node workbench viewport" className="panel__body panel__body--scroll">
+            <div className="placeholder-row">{t('workbench.empty')}</div>
           </div>
         </section>
       </section>
@@ -61,20 +61,13 @@ export function NodeWorkbench() {
   }
 
   return (
-    <section aria-label="Node workbench" style={{ width: '100%' }}>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          minHeight: 0,
-        }}
-      >
-        <section className="workspace-card" aria-label="Open node tabs">
+    <section aria-label="Node workbench" className="workspace-shell">
+      <div className="workspace-stack">
+        <section className="workspace-card workspace-card--chrome" aria-label="Open node tabs">
           <div className="panel__header">
             <div>
-              <div className="panel__eyebrow">Workbench</div>
-              <h2 className="panel__title">Node tabs</h2>
+              <div className="panel__eyebrow">{t('workbench.eyebrow')}</div>
+              <h2 className="panel__title">{t('workbench.title')}</h2>
             </div>
           </div>
           <div className="panel__body">
@@ -94,10 +87,14 @@ export function NodeWorkbench() {
           </div>
         </section>
 
-        <section className="workspace-card" aria-label="Node pane switcher">
+        <section className="workspace-card workspace-card--chrome" aria-label="Node pane switcher">
           <div className="panel__body">
             <div role="tablist" aria-label="Node panes">
-              {(['Data', 'Meta', 'ACL'] as const).map((pane) => (
+              {([
+                ['Data', t('editor.data')],
+                ['Meta', t('meta.title')],
+                ['ACL', t('acl.title')],
+              ] as const).map(([pane, label]) => (
                 <button
                   key={pane}
                   type="button"
@@ -105,42 +102,44 @@ export function NodeWorkbench() {
                   onClick={() => setActivePane(activeTab.path, pane)}
                   style={{ marginRight: '8px' }}
                 >
-                  {pane}
+                  {label}
                 </button>
               ))}
             </div>
           </div>
         </section>
 
-        {activeTab.activePane === 'Data' ? (
-          <NodeEditor
-            path={activeTab.path}
-            value={activeTab.draft}
-            error={activeTab.error}
-            isLoading={activeTab.loadState === 'loading'}
-            isSaving={activeTab.saving}
-            onChange={(value) => setDraft(activeTab.path, value)}
-            onFormatJson={() => applyFormatter(activeTab.path, formatJson)}
-            onFormatXml={() => applyFormatter(activeTab.path, formatXml)}
-            onSave={() => void saveTab(activeTab.path)}
-          />
-        ) : null}
+        <div aria-label="Node workbench viewport" className="workspace-pane">
+          {activeTab.activePane === 'Data' ? (
+            <NodeEditor
+              path={activeTab.path}
+              value={activeTab.draft}
+              error={activeTab.error}
+              isLoading={activeTab.loadState === 'loading'}
+              isSaving={activeTab.saving}
+              onChange={(value) => setDraft(activeTab.path, value)}
+              onFormatJson={() => applyFormatter(activeTab.path, formatJson)}
+              onFormatXml={() => applyFormatter(activeTab.path, formatXml)}
+              onSave={() => void saveTab(activeTab.path)}
+            />
+          ) : null}
 
-        {activeTab.activePane === 'Meta' ? (
-          <NodeMetaPanel
-            path={activeTab.path}
-            version={activeTab.stat.version}
-            numChildren={activeTab.stat.numChildren}
-          />
-        ) : null}
+          {activeTab.activePane === 'Meta' ? (
+            <NodeMetaPanel
+              path={activeTab.path}
+              version={activeTab.stat.version}
+              numChildren={activeTab.stat.numChildren}
+            />
+          ) : null}
 
-        {activeTab.activePane === 'ACL' ? (
-          <NodeAclEditor
-            path={activeTab.path}
-            acl={activeTab.acl}
-            onSaved={(acl) => setAcl(activeTab.path, acl)}
-          />
-        ) : null}
+          {activeTab.activePane === 'ACL' ? (
+            <NodeAclEditor
+              path={activeTab.path}
+              acl={activeTab.acl}
+              onSaved={(acl) => setAcl(activeTab.path, acl)}
+            />
+          ) : null}
+        </div>
       </div>
     </section>
   )

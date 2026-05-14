@@ -7,6 +7,7 @@
   "main": "dist-electron/main/index.cjs",
   "scripts": {
     "dev": "vite",
+    "dev:electron": "node scripts/dev-electron.mjs",
     "build": "npm run build:renderer && npm run build:electron && npm run package:win",
     "build:renderer": "vite build --base ./",
     "build:electron": "npm run build:electron:main && npm run build:electron:preload",

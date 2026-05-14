@@ -1,24 +1,70 @@
 :root {
-  color-scheme: dark;
+  --font-size-base: 14px;
   font-family:
     'Segoe UI',
     'PingFang SC',
     'Microsoft YaHei',
     sans-serif;
-  --bg-app: #07111f;
+  font-size: var(--font-size-base);
+  --radius-lg: 22px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
+}
+
+:root[data-font-size='small'] {
+  --font-size-base: 13px;
+}
+
+:root[data-font-size='medium'] {
+  --font-size-base: 14px;
+}
+
+:root[data-font-size='large'] {
+  --font-size-base: 16px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-app-start: #07111f;
+  --bg-app-end: #091521;
   --bg-panel: rgba(10, 23, 37, 0.94);
   --bg-panel-soft: rgba(17, 35, 54, 0.92);
   --bg-panel-strong: rgba(7, 17, 31, 0.98);
+  --bg-subtle: rgba(255, 255, 255, 0.02);
+  --bg-overlay: rgba(2, 8, 14, 0.66);
   --bg-accent: rgba(36, 200, 165, 0.14);
+  --bg-accent-soft: rgba(36, 200, 165, 0.12);
+  --bg-pending: rgba(242, 196, 90, 0.12);
   --text-main: #edf4fb;
   --text-muted: #90a6bd;
   --text-soft: #6d8197;
   --accent: #24c8a5;
   --accent-strong: #33e1bb;
+  --pending: #f2c45a;
   --border: rgba(143, 168, 192, 0.18);
   --border-strong: rgba(143, 168, 192, 0.32);
   --shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
-  --radius-lg: 22px;
-  --radius-md: 16px;
-  --radius-sm: 12px;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg-app-start: #eef4fb;
+  --bg-app-end: #f7fafc;
+  --bg-panel: rgba(255, 255, 255, 0.95);
+  --bg-panel-soft: rgba(247, 250, 252, 0.92);
+  --bg-panel-strong: rgba(255, 255, 255, 0.98);
+  --bg-subtle: rgba(15, 23, 42, 0.04);
+  --bg-overlay: rgba(148, 163, 184, 0.22);
+  --bg-accent: rgba(19, 177, 146, 0.12);
+  --bg-accent-soft: rgba(19, 177, 146, 0.1);
+  --bg-pending: rgba(194, 144, 29, 0.12);
+  --text-main: #112031;
+  --text-muted: #55697d;
+  --text-soft: #728498;
+  --accent: #139a80;
+  --accent-strong: #0f7d69;
+  --pending: #c2901d;
+  --border: rgba(116, 138, 161, 0.22);
+  --border-strong: rgba(116, 138, 161, 0.34);
+  --shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
 }

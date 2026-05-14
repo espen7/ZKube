@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const monacoEditorSpy = vi.hoisted(() => vi.fn())
@@ -173,6 +173,25 @@ describe('node workbench', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Data' }))
     expect(screen.getByTestId('monaco-editor')).toHaveValue('{"service":"zk"}')
+  })
+
+  it('renders the node editor with a compact path label and action buttons below the editor', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    await openNode()
+
+    const pane = screen.getByLabelText('Node data pane')
+    const pathLabel = within(pane).getByRole('heading', { name: '/config/service' })
+    const editorBody = within(pane).getByTestId('node-editor-body')
+    const editor = within(editorBody).getByTestId('monaco-editor')
+    const actions = within(editorBody).getByTestId('node-editor-actions')
+
+    expect(pathLabel).toHaveClass('node-editor__path')
+    expect(actions.compareDocumentPosition(editor)).toBe(
+      Node.DOCUMENT_POSITION_PRECEDING,
+    )
   })
 
   it('does not allow saving a world:anyone acl when the record is absent', async () => {

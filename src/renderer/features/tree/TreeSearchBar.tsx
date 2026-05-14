@@ -1,3 +1,5 @@
+import { useI18n } from '../../use-i18n'
+
 type TreeSearchBarProps = {
   query: string
   onQueryChange: (query: string) => void
@@ -9,19 +11,21 @@ export function TreeSearchBar({
   onQueryChange,
   onDeepSearch,
 }: TreeSearchBarProps) {
+  const { t } = useI18n()
+
   return (
     <div className="dialog__field">
-      <label htmlFor="tree-search-input">筛选节点</label>
+      <label htmlFor="tree-search-input">{t('tree.filterLabel')}</label>
       <div className="panel__actions">
         <input
           id="tree-search-input"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="按路径过滤已加载节点"
+          placeholder={t('tree.filterPlaceholder')}
           type="text"
         />
         <button type="button" onClick={onDeepSearch}>
-          深度搜索
+          {t('tree.deepSearch')}
         </button>
       </div>
     </div>

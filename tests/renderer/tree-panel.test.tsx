@@ -24,15 +24,19 @@ describe('Tree panel', () => {
   let deleteMock: ReturnType<
     typeof vi.fn<(path: string, version?: number) => Promise<void>>
   >
-  let openMock: ReturnType<typeof vi.fn<(path: string) => Promise<{
-    path: string
-    data: Uint8Array
-    stat: {
-      version: number
-      numChildren: number
-    }
-    acl: []
-  }>>>
+  let openMock: ReturnType<
+    typeof vi.fn<
+      (path: string) => Promise<{
+        path: string
+        data: Uint8Array
+        stat: {
+          version: number
+          numChildren: number
+        }
+        acl: []
+      }>
+    >
+  >
 
   beforeEach(() => {
     loadChildrenMock = vi
@@ -86,6 +90,20 @@ describe('Tree panel', () => {
         exportAll: vi.fn(),
         importJson: vi.fn(),
         connect: vi.fn(),
+      },
+      preferences: {
+        getTheme: vi.fn().mockResolvedValue({
+          theme: 'dark',
+          language: 'en',
+          fontSize: 'medium',
+        }),
+        setTheme: vi.fn().mockResolvedValue({
+          theme: 'dark',
+          language: 'en',
+          fontSize: 'medium',
+        }),
+        openSettingsWindow: vi.fn().mockResolvedValue(undefined),
+        subscribeTheme: vi.fn(() => vi.fn()),
       },
       zookeeper: {
         disconnect: vi.fn(),
@@ -142,7 +160,7 @@ describe('Tree panel', () => {
 
     await act(async () => {
       fireEvent.click(
-        screen.getByRole('button', { name: '\u52a0\u8f7d\u6839\u8282\u70b9' }),
+        screen.getByRole('button', { name: 'Load root nodes' }),
       )
     })
 
@@ -150,7 +168,7 @@ describe('Tree panel', () => {
     expect(await screen.findByText('/configs')).toBeInTheDocument()
     expect(screen.getByText('/services')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('\u7b5b\u9009\u8282\u70b9'), {
+    fireEvent.change(screen.getByLabelText('Filter nodes'), {
       target: { value: 'serv' },
     })
 
@@ -165,10 +183,10 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '加载根节点' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
     })
 
-    const loadedTree = await screen.findByRole('list', { name: '已加载节点' })
+    const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     const servicesRow = within(loadedTree)
       .getAllByRole('listitem')
       .find((item) => within(item).queryByText('/services'))
@@ -177,7 +195,7 @@ describe('Tree panel', () => {
 
     await act(async () => {
       fireEvent.click(
-        within(servicesRow as HTMLElement).getByRole('button', { name: '展开' }),
+        within(servicesRow as HTMLElement).getByRole('button', { name: 'Expand' }),
       )
     })
 
@@ -190,12 +208,12 @@ describe('Tree panel', () => {
       render(<App />)
     })
 
-    fireEvent.change(screen.getByLabelText('\u7b5b\u9009\u8282\u70b9'), {
+    fireEvent.change(screen.getByLabelText('Filter nodes'), {
       target: { value: 'live' },
     })
     await act(async () => {
       fireEvent.click(
-        screen.getByRole('button', { name: '\u6df1\u5ea6\u641c\u7d22' }),
+        screen.getByRole('button', { name: 'Deep search' }),
       )
     })
 
@@ -204,12 +222,12 @@ describe('Tree panel', () => {
 
     await act(async () => {
       fireEvent.click(
-        screen.getByRole('button', { name: '\u6f14\u793a\u521b\u5efa' }),
+        screen.getByRole('button', { name: 'Demo create' }),
       )
     })
     await act(async () => {
       fireEvent.click(
-        screen.getByRole('button', { name: '\u6f14\u793a\u5220\u9664' }),
+        screen.getByRole('button', { name: 'Demo delete' }),
       )
     })
 
@@ -228,7 +246,7 @@ describe('Tree panel', () => {
 
     await act(async () => {
       fireEvent.click(
-        screen.getByRole('button', { name: '\u52a0\u8f7d\u6839\u8282\u70b9' }),
+        screen.getByRole('button', { name: 'Load root nodes' }),
       )
     })
 
@@ -254,12 +272,12 @@ describe('Tree panel', () => {
       render(<App />)
     })
 
-    fireEvent.change(screen.getByLabelText('\u7b5b\u9009\u8282\u70b9'), {
+    fireEvent.change(screen.getByLabelText('Filter nodes'), {
       target: { value: 'live' },
     })
     await act(async () => {
       fireEvent.click(
-        screen.getByRole('button', { name: '\u6df1\u5ea6\u641c\u7d22' }),
+        screen.getByRole('button', { name: 'Deep search' }),
       )
     })
 
@@ -299,18 +317,18 @@ describe('Tree panel', () => {
       render(<App />)
     })
 
-    fireEvent.change(screen.getByLabelText('筛选节点'), {
+    fireEvent.change(screen.getByLabelText('Filter nodes'), {
       target: { value: 'live' },
     })
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '深度搜索' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Deep search' }))
     })
 
-    fireEvent.change(screen.getByLabelText('筛选节点'), {
+    fireEvent.change(screen.getByLabelText('Filter nodes'), {
       target: { value: 'conf' },
     })
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '深度搜索' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Deep search' }))
     })
 
     await act(async () => {
@@ -343,11 +361,11 @@ describe('Tree panel', () => {
       render(<App />)
     })
 
-    fireEvent.change(screen.getByLabelText('筛选节点'), {
+    fireEvent.change(screen.getByLabelText('Filter nodes'), {
       target: { value: 'live' },
     })
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '深度搜索' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Deep search' }))
     })
 
     await act(async () => {
@@ -370,7 +388,7 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '加载根节点' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
     })
 
     expect(await screen.findByText('/configs')).toBeInTheDocument()
@@ -384,7 +402,7 @@ describe('Tree panel', () => {
 
     expect(screen.queryByText('/configs')).not.toBeInTheDocument()
     expect(
-      screen.getByText('先加载根节点，再展开需要的目录。'),
+      screen.getByText('Load the root nodes first, then expand the branches you need.'),
     ).toBeInTheDocument()
   })
 
@@ -394,7 +412,7 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '加载根节点' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
     })
 
     expect(await screen.findByText('/configs')).toBeInTheDocument()
@@ -443,10 +461,10 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '加载根节点' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
     })
 
-    const loadedTree = await screen.findByRole('list', { name: '已加载节点' })
+    const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     const servicesRow = within(loadedTree)
       .getAllByRole('listitem')
       .find((item) => within(item).queryByText('/services'))
@@ -455,7 +473,7 @@ describe('Tree panel', () => {
 
     await act(async () => {
       fireEvent.click(
-        within(servicesRow as HTMLElement).getByRole('button', { name: '展开' }),
+        within(servicesRow as HTMLElement).getByRole('button', { name: 'Expand' }),
       )
     })
 
@@ -479,10 +497,10 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '加载根节点' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
     })
 
-    let loadedTree = await screen.findByRole('list', { name: '已加载节点' })
+    let loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     let servicesRow = within(loadedTree)
       .getAllByRole('listitem')
       .find((item) => within(item).queryByText('/services'))
@@ -491,7 +509,7 @@ describe('Tree panel', () => {
 
     await act(async () => {
       fireEvent.click(
-        within(servicesRow as HTMLElement).getByRole('button', { name: '展开' }),
+        within(servicesRow as HTMLElement).getByRole('button', { name: 'Expand' }),
       )
     })
 
@@ -523,7 +541,7 @@ describe('Tree panel', () => {
       })
     })
 
-    loadedTree = await screen.findByRole('list', { name: '已加载节点' })
+    loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     servicesRow = within(loadedTree)
       .getAllByRole('listitem')
       .find((item) => within(item).queryByText('/services'))
@@ -532,7 +550,7 @@ describe('Tree panel', () => {
 
     await act(async () => {
       fireEvent.click(
-        within(servicesRow as HTMLElement).getByRole('button', { name: '展开' }),
+        within(servicesRow as HTMLElement).getByRole('button', { name: 'Expand' }),
       )
     })
 
@@ -571,10 +589,10 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: '加载根节点' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
     })
 
-    const loadedTree = await screen.findByRole('list', { name: '已加载节点' })
+    const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     const servicesRow = within(loadedTree)
       .getAllByRole('listitem')
       .find((item) => within(item).queryByText('/services'))
@@ -583,7 +601,7 @@ describe('Tree panel', () => {
 
     await act(async () => {
       fireEvent.click(
-        within(servicesRow as HTMLElement).getByRole('button', { name: '展开' }),
+        within(servicesRow as HTMLElement).getByRole('button', { name: 'Expand' }),
       )
     })
 

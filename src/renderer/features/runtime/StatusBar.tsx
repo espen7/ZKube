@@ -1,5 +1,9 @@
+import type { ConnectionState } from '../../../shared/models/node'
+import { useI18n } from '../../use-i18n'
+import { ConnectionStateBadge } from './ConnectionStateBadge'
+
 type StatusBarProps = {
-  connectionState: 'connected' | 'disconnected' | 'reconnecting'
+  connectionState: ConnectionState
   watcherCount: number
   message: string | null
 }
@@ -9,21 +13,16 @@ export function StatusBar({
   watcherCount,
   message,
 }: StatusBarProps) {
+  const { t } = useI18n()
+
   return (
-    <div
-      aria-label="Runtime status bar"
-      style={{
-        display: 'flex',
-        width: '100%',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '16px',
-        flexWrap: 'wrap',
-      }}
-    >
-      <span>{connectionState}</span>
-      <span>{`watchers: ${watcherCount}`}</span>
-      <span>{message ?? 'Waiting for runtime events'}</span>
+    <div aria-label="Runtime status bar" className="status-bar">
+      <ConnectionStateBadge
+        ariaLabel="Connection status indicator"
+        state={connectionState}
+      />
+      <span>{t('runtime.watchers', { count: watcherCount })}</span>
+      <span>{message ?? t('runtime.waiting')}</span>
     </div>
   )
 }

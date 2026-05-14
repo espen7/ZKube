@@ -4,25 +4,31 @@ import type {
   ConnectionDraft,
   StoredConnection,
 } from '../../../shared/models/connection'
-
-type DialogMode = 'create' | 'import' | null
+import type {
+  ConnectionState,
+  RuntimeEvent,
+} from '../../../shared/models/node'
+import { translate } from '../../i18n'
+import { getPreferencesSnapshot } from '../settings/useThemeStore'
 
 type ConnectionsState = {
   items: StoredConnection[]
-  dialogMode: DialogMode
+  dialogOpen: boolean
   dialogError: string | null
   feedback: string | null
-  exportPreview: string | null
   submitting: boolean
+  activeConnectionId: string | null
+  connectionState: ConnectionState
 }
 
 const initialState: ConnectionsState = {
   items: [],
-  dialogMode: null,
+  dialogOpen: false,
   dialogError: null,
   feedback: null,
-  exportPreview: null,
   submitting: false,
+  activeConnectionId: null,
+  connectionState: 'disconnected',
 }
 
 const listeners = new Set<() => void>()
@@ -57,7 +63,11 @@ function getErrorMessage(error: unknown): string {
   return 'Operation failed. Please try again.'
 }
 
-function createConnectionId(name: string): string {
+function t(key: string, variables?: Record<string, string | number>) {
+  return translate(getPreferencesSnapshot().language, key, variables)
+}
+
+function createConnectionId(name: string) {
   const slug = name
     .trim()
     .toLowerCase()
@@ -88,7 +98,6 @@ async function load() {
     setState({
       items: [],
       feedback: getErrorMessage(error),
-      exportPreview: null,
     })
   }
 }
@@ -98,28 +107,83 @@ async function connect(connectionId: string) {
     return
   }
 
+  const previousActiveConnectionId = state.activeConnectionId
+  const previousConnectionState = state.connectionState
+
+  setState({
+    activeConnectionId: connectionId,
+    connectionState:
+      previousActiveConnectionId && previousActiveConnectionId !== connectionId
+        ? 'reconnecting'
+        : 'connecting',
+    feedback: null,
+  })
+
   try {
     await window.zkube.connections.connect(connectionId)
+  } catch (error) {
+    setState({
+      activeConnectionId: previousActiveConnectionId,
+      connectionState: previousActiveConnectionId
+        ? previousConnectionState
+        : 'disconnected',
+      feedback: getErrorMessage(error),
+    })
+  }
+}
+
+async function disconnect() {
+  if (!window.zkube?.zookeeper.disconnect) {
+    return
+  }
+
+  try {
+    await window.zkube.zookeeper.disconnect()
     setState({ feedback: null })
   } catch (error) {
     setState({ feedback: getErrorMessage(error) })
   }
 }
 
-async function exportAll() {
-  if (!window.zkube?.connections.exportAll) {
+async function importFromFile() {
+  if (!window.zkube?.connections.importFromFile) {
     return
   }
 
   try {
-    const content = await window.zkube.connections.exportAll()
+    const items = await window.zkube.connections.importFromFile()
+    if (!items) {
+      return
+    }
+
     setState({
-      exportPreview: content,
-      feedback: 'Connections exported.',
+      items,
+      feedback: t('connection.imported'),
+      dialogError: null,
     })
   } catch (error) {
     setState({
-      exportPreview: null,
+      feedback: getErrorMessage(error),
+    })
+  }
+}
+
+async function exportToFile() {
+  if (!window.zkube?.connections.exportToFile) {
+    return
+  }
+
+  try {
+    const result = await window.zkube.connections.exportToFile()
+    if (!result) {
+      return
+    }
+
+    setState({
+      feedback: t('connection.exported', { filePath: result.filePath }),
+    })
+  } catch (error) {
+    setState({
       feedback: getErrorMessage(error),
     })
   }
@@ -127,21 +191,14 @@ async function exportAll() {
 
 function openCreateDialog() {
   setState({
-    dialogMode: 'create',
-    dialogError: null,
-  })
-}
-
-function openImportDialog() {
-  setState({
-    dialogMode: 'import',
+    dialogOpen: true,
     dialogError: null,
   })
 }
 
 function closeDialog() {
   setState({
-    dialogMode: null,
+    dialogOpen: false,
     dialogError: null,
     submitting: false,
   })
@@ -164,7 +221,7 @@ async function saveConnection(input: {
   }
 
   if (!draft.name || !draft.hosts) {
-    const message = 'Name and hosts are required.'
+    const message = t('connection.validation')
     setState({ dialogError: message, feedback: message })
     return
   }
@@ -179,10 +236,9 @@ async function saveConnection(input: {
     const saved = await window.zkube.connections.save(draft)
     setState({
       items: upsertConnection(state.items, saved),
-      dialogMode: null,
+      dialogOpen: false,
       dialogError: null,
-      feedback: 'Connection saved.',
-      exportPreview: null,
+      feedback: t('connection.saved'),
       submitting: false,
     })
   } catch (error) {
@@ -195,41 +251,43 @@ async function saveConnection(input: {
   }
 }
 
-async function importConnections(rawJson: string) {
-  if (!window.zkube?.connections.importJson) {
+async function deleteConnection(connectionId: string) {
+  if (!window.zkube?.connections.delete) {
     return
   }
-
-  const json = rawJson.trim()
-  if (!json) {
-    const message = 'Connection JSON is required.'
-    setState({ dialogError: message, feedback: message })
-    return
-  }
-
-  setState({
-    dialogError: null,
-    feedback: null,
-    submitting: true,
-  })
 
   try {
-    const items = await window.zkube.connections.importJson(json)
+    await window.zkube.connections.delete(connectionId)
     setState({
-      items,
-      dialogMode: null,
-      dialogError: null,
-      feedback: 'Connections imported.',
-      exportPreview: null,
-      submitting: false,
+      items: state.items.filter((item) => item.id !== connectionId),
+      feedback: t('connection.deleted'),
     })
   } catch (error) {
-    const message = getErrorMessage(error)
     setState({
-      dialogError: message,
-      feedback: message,
-      submitting: false,
+      feedback: getErrorMessage(error),
     })
+  }
+}
+
+function handleRuntimeEvent(event: RuntimeEvent) {
+  if (event.type !== 'connectionStateChanged') {
+    return
+  }
+
+  switch (event.state) {
+    case 'disconnected':
+      setState({
+        activeConnectionId: null,
+        connectionState: 'disconnected',
+      })
+      return
+    case 'connecting':
+    case 'connected':
+    case 'reconnecting':
+      setState({
+        connectionState: event.state,
+        feedback: null,
+      })
   }
 }
 
@@ -243,14 +301,15 @@ export function useConnectionsStore() {
 
   return {
     ...snapshot,
-    dialogOpen: snapshot.dialogMode !== null,
     load,
     connect,
-    exportAll,
+    disconnect,
+    importFromFile,
+    exportToFile,
+    deleteConnection,
     openCreateDialog,
-    openImportDialog,
     closeDialog,
     saveConnection,
-    importConnections,
+    handleRuntimeEvent,
   }
 }

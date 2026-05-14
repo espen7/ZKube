@@ -96,6 +96,12 @@ npm install
 npm run dev
 ```
 
+### Start the Full Electron App in Development
+
+```bash
+npm run dev:electron
+```
+
 ## Validation
 
 Unit tests:
@@ -159,6 +165,7 @@ ZKube can connect to real ZooKeeper environments. Before using it against shared
 ## Documentation
 
 - Chinese guide: [README.zh-CN.md](./README.zh-CN.md)
+- Changelog: [CHANGELOG.md](./CHANGELOG.md)
 - Design spec: [docs/superpowers/specs/2026-05-13-zkube-desktop-design.md](./docs/superpowers/specs/2026-05-13-zkube-desktop-design.md)
 - Implementation plan: [docs/superpowers/plans/2026-05-13-zkube-desktop-v1.md](./docs/superpowers/plans/2026-05-13-zkube-desktop-v1.md)
 

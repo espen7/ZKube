@@ -27,8 +27,10 @@ const savedConnections: StoredConnection[] = [
 
 describe('Connections workspace', () => {
   const originalZkube = window.zkube
+  const originalConfirm = window.confirm
 
   beforeEach(() => {
+    window.confirm = vi.fn(() => true)
     window.zkube = {
       app: {
         getVersion: vi.fn(),
@@ -39,7 +41,20 @@ describe('Connections workspace', () => {
         save: vi.fn(),
         exportAll: vi.fn(),
         importJson: vi.fn(),
+        importFromFile: vi.fn(),
+        exportToFile: vi.fn(),
+        delete: vi.fn().mockResolvedValue(undefined),
         connect: vi.fn(),
+      },
+      preferences: {
+        getTheme: vi.fn().mockResolvedValue({
+          theme: 'dark',
+          language: 'en',
+          fontSize: 'medium',
+        }),
+        setTheme: vi.fn().mockResolvedValue({ theme: 'dark' }),
+        openSettingsWindow: vi.fn().mockResolvedValue(undefined),
+        subscribeTheme: vi.fn(() => vi.fn()),
       },
       zookeeper: {
         disconnect: vi.fn(),
@@ -59,10 +74,11 @@ describe('Connections workspace', () => {
 
   afterEach(() => {
     resetConnectionsStore()
+    window.confirm = originalConfirm
     window.zkube = originalZkube
   })
 
-  it('renders saved connections and opens the new connection dialog', async () => {
+  it('renders saved connections and opens the new connection dialog from the tool rail', async () => {
     render(<App />)
 
     expect(await screen.findByText('Local ZooKeeper')).toBeInTheDocument()
@@ -117,7 +133,7 @@ describe('Connections workspace', () => {
     expect(await screen.findByRole('status')).toHaveTextContent(/saved/i)
   })
 
-  it('imports connection json and refreshes the list', async () => {
+  it('imports connection json from a file picker and refreshes the list', async () => {
     const importedConnections: StoredConnection[] = [
       {
         id: 'imported-zk',
@@ -130,7 +146,7 @@ describe('Connections workspace', () => {
     ]
 
     window.zkube.connections.list = vi.fn().mockResolvedValue([])
-    window.zkube.connections.importJson = vi
+    window.zkube.connections.importFromFile = vi
       .fn()
       .mockResolvedValue(importedConnections)
 
@@ -141,35 +157,69 @@ describe('Connections workspace', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /import connections/i }))
 
-    fireEvent.change(screen.getByRole('textbox', { name: /connection json/i }), {
-      target: {
-        value:
-          '[{"id":"imported-zk","name":"Imported Cluster","hosts":"10.10.0.1:2181"}]',
-      },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /import connection json/i }))
-
-    expect(window.zkube.connections.importJson).toHaveBeenCalledTimes(1)
-    expect(window.zkube.connections.importJson).toHaveBeenCalledWith(
-      '[{"id":"imported-zk","name":"Imported Cluster","hosts":"10.10.0.1:2181"}]',
-    )
+    expect(window.zkube.connections.importFromFile).toHaveBeenCalledTimes(1)
     expect(await screen.findByText('Imported Cluster')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(await screen.findByRole('status')).toHaveTextContent(/imported/i)
   })
 
-  it('surfaces exported connection JSON after clicking export', async () => {
-    window.zkube.connections.exportAll = vi
-      .fn()
-      .mockResolvedValue('[{"id":"local-zk"}]')
+  it('exports connections to a chosen directory without showing raw json', async () => {
+    window.zkube.connections.exportToFile = vi.fn().mockResolvedValue({
+      filePath: 'C:\\Exports\\zkube-connections.json',
+    })
 
     render(<App />)
 
     await screen.findByText('Local ZooKeeper')
     fireEvent.click(screen.getByRole('button', { name: /export connections/i }))
 
+    expect(window.zkube.connections.exportToFile).toHaveBeenCalledTimes(1)
     expect(await screen.findByRole('status')).toHaveTextContent(/exported/i)
-    expect(await screen.findByText('[{"id":"local-zk"}]')).toBeInTheDocument()
+    expect(screen.queryByText('[{"id":"local-zk"}]')).not.toBeInTheDocument()
+  })
+
+  it('opens the settings window from the tool rail', async () => {
+    render(<App />)
+
+    await screen.findByText('Local ZooKeeper')
+    fireEvent.click(screen.getByRole('button', { name: /open settings/i }))
+
+    expect(window.zkube.preferences?.openSettingsWindow).toHaveBeenCalledTimes(1)
+  })
+
+  it('deletes a disconnected connection from the right-click menu after confirmation', async () => {
+    render(<App />)
+
+    const card = (await screen.findByText('Staging Cluster')).closest('article')
+    expect(card).not.toBeNull()
+
+    fireEvent.contextMenu(card as HTMLElement)
+
+    fireEvent.click(screen.getByRole('menuitem', { name: /delete connection/i }))
+
+    expect(window.confirm).toHaveBeenCalled()
+    expect(window.zkube.connections.delete).toHaveBeenCalledWith('staging-zk')
+  })
+
+  it('disables deleting the active connection from the right-click menu', async () => {
+    render(<App />)
+
+    const localCard = (await screen.findByText('Local ZooKeeper')).closest('article')
+    expect(localCard).not.toBeNull()
+
+    fireEvent.click(
+      within(localCard as HTMLElement).getByRole('button', {
+        name: /connect connection local zoo?keeper/i,
+      }),
+    )
+
+    const localCardAfterConnect = (await screen.findByText('Local ZooKeeper')).closest('article')
+    fireEvent.contextMenu(localCardAfterConnect as HTMLElement)
+
+    expect(
+      screen.getByRole('menuitem', { name: /delete connection/i }),
+    ).toHaveAttribute('aria-disabled', 'true')
+    expect(window.zkube.connections.delete).not.toHaveBeenCalled()
   })
 
   it('shows an inline error when connection fails', async () => {
@@ -221,9 +271,9 @@ describe('Connections workspace', () => {
     expect(dialog).toBeInTheDocument()
   })
 
-  it('shows an inline error when importing json fails', async () => {
+  it('shows an inline error when importing from a file fails', async () => {
     window.zkube.connections.list = vi.fn().mockResolvedValue([])
-    window.zkube.connections.importJson = vi
+    window.zkube.connections.importFromFile = vi
       .fn()
       .mockRejectedValue(new Error('Import failed'))
 
@@ -234,13 +284,7 @@ describe('Connections workspace', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: /import connections/i }))
 
-    fireEvent.change(screen.getByRole('textbox', { name: /connection json/i }), {
-      target: { value: '[invalid]' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: /import connection json/i }))
-
-    const dialog = screen.getByRole('dialog')
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Import failed')
-    expect(dialog).toBeInTheDocument()
+    expect(await screen.findByText('Import failed')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

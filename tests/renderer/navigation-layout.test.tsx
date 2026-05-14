@@ -1,0 +1,90 @@
+import { render, screen, within } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+vi.mock('@monaco-editor/react', () => ({
+  default: (props: { value?: string }) => (
+    <div data-testid="monaco-editor">{props.value ?? ''}</div>
+  ),
+}))
+
+import App from '../../src/renderer/App'
+import { resetConnectionsStore } from '../../src/renderer/features/connections/useConnectionsStore'
+import { resetTreeStore } from '../../src/renderer/features/tree/useTreeStore'
+import { resetWorkbenchStore } from '../../src/renderer/stores/useWorkbenchStore'
+
+describe('navigation workspace layout', () => {
+  const originalZkube = window.zkube
+
+  beforeEach(() => {
+    window.zkube = {
+      app: {
+        getVersion: vi.fn(),
+        ping: vi.fn(),
+      },
+      connections: {
+        list: vi.fn().mockResolvedValue([]),
+        save: vi.fn(),
+        exportAll: vi.fn(),
+        importJson: vi.fn(),
+        importFromFile: vi.fn(),
+        exportToFile: vi.fn(),
+        connect: vi.fn(),
+      },
+      preferences: {
+        getTheme: vi.fn().mockResolvedValue({ theme: 'dark' }),
+        setTheme: vi.fn().mockResolvedValue({ theme: 'dark' }),
+        openSettingsWindow: vi.fn().mockResolvedValue(undefined),
+        subscribeTheme: vi.fn(() => vi.fn()),
+      },
+      zookeeper: {
+        disconnect: vi.fn(),
+        loadChildren: vi.fn().mockResolvedValue([]),
+        open: vi.fn(),
+        search: vi.fn(),
+        create: vi.fn(),
+        delete: vi.fn(),
+        update: vi.fn(),
+        saveAcl: vi.fn(),
+      },
+      runtime: {
+        subscribe: vi.fn(),
+      },
+    }
+  })
+
+  afterEach(() => {
+    resetConnectionsStore()
+    resetTreeStore()
+    resetWorkbenchStore()
+    window.zkube = originalZkube
+  })
+
+  it('groups the tool rail, connections panel, and tree panel inside a shared navigation workspace', () => {
+    render(<App />)
+
+    const navigationWorkspace = screen.getByLabelText('Navigation workspace')
+    const toolRail = within(navigationWorkspace).getByLabelText('Navigation tools')
+    const createButton = within(toolRail).getByRole('button', {
+      name: /create connection/i,
+    })
+
+    expect(createButton.querySelector('svg')).not.toBeNull()
+    expect(createButton).not.toHaveTextContent(/^N$/)
+    expect(
+      within(toolRail).getByRole('button', { name: /open settings/i }),
+    ).toBeInTheDocument()
+    expect(
+      within(toolRail).getByRole('button', { name: /import connections/i }),
+    ).toBeInTheDocument()
+    expect(
+      within(toolRail).getByRole('button', { name: /export connections/i }),
+    ).toBeInTheDocument()
+    expect(
+      within(navigationWorkspace).getByLabelText('Connections sidebar'),
+    ).toBeInTheDocument()
+    expect(within(navigationWorkspace).getByText('Tree')).toBeInTheDocument()
+    expect(screen.getByLabelText('Saved connections list')).toBeInTheDocument()
+    expect(screen.getByLabelText('Tree content region')).toBeInTheDocument()
+    expect(screen.getByLabelText('Inspector content')).toBeInTheDocument()
+  })
+})

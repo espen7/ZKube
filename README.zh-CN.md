@@ -96,6 +96,12 @@ npm install
 npm run dev
 ```
 
+### 启动完整 Electron 开发环境
+
+```bash
+npm run dev:electron
+```
+
 ## 验证命令
 
 单元测试：
@@ -159,6 +165,7 @@ ZKube 可以连接真实 ZooKeeper 环境。在接入共享环境或生产环境
 ## 项目文档
 
 - 英文文档：[README.md](./README.md)
+- 更新日志：[CHANGELOG.md](./CHANGELOG.md)
 - 设计说明：[docs/superpowers/specs/2026-05-13-zkube-desktop-design.md](./docs/superpowers/specs/2026-05-13-zkube-desktop-design.md)
 - 实现计划：[docs/superpowers/plans/2026-05-13-zkube-desktop-v1.md](./docs/superpowers/plans/2026-05-13-zkube-desktop-v1.md)
 

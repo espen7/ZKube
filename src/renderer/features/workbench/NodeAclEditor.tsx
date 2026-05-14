@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 import type { AclEntry } from '../../../shared/models/node'
+import { useI18n } from '../../use-i18n'
 
 const permissionKeys = ['read', 'write', 'create', 'delete', 'admin'] as const
 
@@ -10,14 +11,6 @@ type NodeAclEditorProps = {
   path: string
   acl: AclEntry[]
   onSaved?: (acl: AclEntry[]) => void
-}
-
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error && error.message) {
-    return error.message
-  }
-
-  return 'Unable to save ACL.'
 }
 
 function getWorldAnyoneEntry(acl: AclEntry[]) {
@@ -43,6 +36,7 @@ function buildNextAcl(acl: AclEntry[], permissions: PermissionKey[]) {
 }
 
 export function NodeAclEditor({ path, acl, onSaved }: NodeAclEditorProps) {
+  const { t } = useI18n()
   const worldAnyoneEntry = useMemo(() => getWorldAnyoneEntry(acl), [acl])
   const canEditWorldAnyone = Boolean(worldAnyoneEntry)
   const initialPermissions = useMemo(
@@ -75,9 +69,13 @@ export function NodeAclEditor({ path, acl, onSaved }: NodeAclEditorProps) {
     try {
       await window.zkube.zookeeper.saveAcl(path, nextAcl)
       onSaved?.(nextAcl)
-      setFeedback(`ACL saved for ${path}`)
+      setFeedback(t('acl.saved', { path }))
     } catch (saveError) {
-      setError(getErrorMessage(saveError))
+      setError(
+        saveError instanceof Error && saveError.message
+          ? saveError.message
+          : t('acl.saveFailed'),
+      )
     } finally {
       setSaving(false)
     }
@@ -87,15 +85,15 @@ export function NodeAclEditor({ path, acl, onSaved }: NodeAclEditorProps) {
     <section className="workspace-card" aria-label="Node acl pane">
       <div className="panel__header">
         <div>
-          <div className="panel__eyebrow">ACL</div>
+          <div className="panel__eyebrow">{t('acl.title')}</div>
           <h2 className="panel__title">{path}</h2>
         </div>
       </div>
-      <div className="panel__body">
+      <div className="panel__body panel__body--scroll">
         <div className="placeholder-row">
           {canEditWorldAnyone
-            ? 'Editing record `world:anyone`.'
-            : 'This node does not expose a `world:anyone` ACL record.'}
+            ? t('acl.editingWorldAnyone')
+            : t('acl.noWorldAnyone')}
         </div>
         <div
           style={{
@@ -146,7 +144,7 @@ export function NodeAclEditor({ path, acl, onSaved }: NodeAclEditorProps) {
             onClick={() => void handleSave()}
             disabled={saving || !canEditWorldAnyone}
           >
-            {saving ? 'Saving ACL...' : 'Save ACL'}
+            {saving ? t('acl.saving') : t('acl.save')}
           </button>
           {feedback ? <p role="status">{feedback}</p> : null}
         </div>

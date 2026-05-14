@@ -5,6 +5,7 @@ import {
   createDesktopApi,
   channels,
   type Transport,
+  type EventPayloadMap,
   type InvokeChannel,
   type InvokeRequestMap,
   type InvokeResponseMap,
@@ -189,9 +190,12 @@ describe('SessionManager', () => {
 
         return { ok: true } as InvokeResponseMap[TChannel]
       },
-      on: (channel, cb) => {
+      on: <TChannel extends keyof EventPayloadMap>(
+        channel: TChannel,
+        cb: (payload: EventPayloadMap[TChannel]) => void,
+      ) => {
         if (channel === channels.runtimeEvent) {
-          handler = cb
+          handler = cb as (payload: RuntimeEvent) => void
         }
 
         return () => {}

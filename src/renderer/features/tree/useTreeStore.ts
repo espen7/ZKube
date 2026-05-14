@@ -26,6 +26,7 @@ let state: TreeState = initialState
 let latestSearchRequestId = 0
 let nextLoadRequestId = 0
 const loadRequestIds = new Map<string, number>()
+let rootLoadTimer: ReturnType<typeof setTimeout> | null = null
 
 function emitChange() {
   for (const listener of listeners) {
@@ -321,6 +322,11 @@ async function deleteDemoNode() {
 }
 
 export function resetTreeStore() {
+  if (rootLoadTimer) {
+    clearTimeout(rootLoadTimer)
+    rootLoadTimer = null
+  }
+
   cancelPendingSearches()
   loadRequestIds.clear()
   state = initialState
@@ -345,6 +351,14 @@ async function handleRuntimeEvent(event: RuntimeEvent) {
   switch (event.type) {
     case 'connectionStateChanged':
       resetTreeStore()
+
+      if (event.state === 'connected') {
+        rootLoadTimer = setTimeout(() => {
+          rootLoadTimer = null
+          void loadRoot()
+        }, 0)
+      }
+
       return
     case 'nodeChildrenChanged':
       cancelPendingSearches()
