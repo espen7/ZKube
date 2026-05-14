@@ -11,7 +11,7 @@ import { NodeWorkbench } from '../workbench/NodeWorkbench'
 import { useConnectionsStore } from '../connections/useConnectionsStore'
 import { useI18n } from '../../use-i18n'
 
-const DEFAULT_NAVIGATION_WIDTH = 860
+const DEFAULT_NAVIGATION_WIDTH = 980
 const MIN_NAVIGATION_WIDTH = 700
 const MAX_NAVIGATION_WIDTH = 1180
 const COMPACT_MIN_NAVIGATION_WIDTH = 560

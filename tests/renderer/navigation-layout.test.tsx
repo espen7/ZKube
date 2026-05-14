@@ -110,13 +110,13 @@ describe('navigation workspace layout', () => {
     const appShell = screen.getByLabelText('ZKube app shell')
     const divider = screen.getByRole('separator', { name: /resize tree and workbench/i })
 
-    expect(appShell.style.getPropertyValue('--navigation-width')).toBe('860px')
+    expect(appShell.style.getPropertyValue('--navigation-width')).toBe('980px')
 
-    fireEvent.mouseDown(divider, { clientX: 860 })
-    fireEvent.mouseMove(window, { clientX: 980 })
+    fireEvent.mouseDown(divider, { clientX: 980 })
+    fireEvent.mouseMove(window, { clientX: 1004 })
     fireEvent.mouseUp(window)
 
-    expect(appShell.style.getPropertyValue('--navigation-width')).toBe('980px')
+    expect(appShell.style.getPropertyValue('--navigation-width')).toBe('1004px')
   })
 
   it('clamps the navigation width so dragging cannot hide the workbench', () => {

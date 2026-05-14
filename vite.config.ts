@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
+import { createContentSecurityPolicy } from './config/content-security-policy'
+
 const test = {
   environment: 'jsdom',
   globals: true,
@@ -21,7 +23,7 @@ const nodeBuiltins = Array.from(
 
 const electronMainExternals = ['electron', 'node-zookeeper-client', ...nodeBuiltins]
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ mode, command }) => {
   if (mode === 'electron-main') {
     return {
       build: {
@@ -61,7 +63,23 @@ export default defineConfig(({ mode }) => {
   }
 
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      {
+        name: 'zkube-content-security-policy',
+        transformIndexHtml(html) {
+          const csp = createContentSecurityPolicy(
+            command === 'serve' ? 'development' : 'production',
+            process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:5173',
+          )
+
+          return html.replace(
+            '</head>',
+            `    <meta http-equiv="Content-Security-Policy" content="${csp}" />\n  </head>`,
+          )
+        },
+      },
+    ],
     test,
   }
 })
