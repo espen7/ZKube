@@ -20,7 +20,9 @@
 
 ## 项目截图
 
-![ZKube 项目截图](docs/screenshot.png)
+![ZKube screenshot - light theme](docs/screenshot.png)
+
+![ZKube screenshot - dark theme](docs/screenshot_dark.png)
 
 ## 项目简介
 

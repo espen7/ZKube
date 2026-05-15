@@ -20,7 +20,13 @@
 
 ## Screenshot
 
-![ZKube screenshot](docs/screenshot.png)
+### Light Theme
+
+![ZKube screenshot - light theme](docs/screenshot.png)
+
+### Dark Theme
+
+![ZKube screenshot - dark theme](docs/screenshot_dark.png)
 
 ## Overview
 
