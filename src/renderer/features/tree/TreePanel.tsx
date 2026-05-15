@@ -74,6 +74,26 @@ function FolderIcon() {
   )
 }
 
+function RootIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20">
+      <path
+        d="M3.5 5.5A1.5 1.5 0 0 1 5 4h10a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 15 16H5a1.5 1.5 0 0 1-1.5-1.5v-9Z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M6.5 8.5h7m-7 3h5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 function FileIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20">
@@ -136,11 +156,13 @@ function TreeBranch({
   const isSelected = activePath === row.path
   const isHovered = hoveredPath === row.path
   const isLeafQuickDelete = !row.hasChildren && row.path !== '/'
+  const isRootRow = row.path === '/'
   const visibleIndex = visibleIndexRef.value
   visibleIndexRef.value += 1
   const rowClassName = [
     'tree-row',
     visibleIndex % 2 === 0 ? 'tree-row--odd' : 'tree-row--even',
+    isRootRow ? 'tree-row--root' : '',
     isSelected ? 'tree-row--selected' : '',
   ]
     .filter(Boolean)
@@ -192,9 +214,23 @@ function TreeBranch({
             </span>
           )}
           <span aria-hidden="true" className="tree-row__icon">
-            {row.hasChildren ? <FolderIcon /> : <FileIcon />}
+            {isRootRow ? (
+              <RootIcon />
+            ) : row.hasChildren ? (
+              <FolderIcon />
+            ) : (
+              <FileIcon />
+            )}
           </span>
-          <span className="tree-row__open" title={row.path}>
+          <span
+            className={[
+              'tree-row__open',
+              isRootRow ? 'tree-row__open--root' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            title={row.path}
+          >
             {row.name}
           </span>
           {markColor ? (
@@ -390,7 +426,15 @@ export function TreePanel() {
   const [hoveredPath, setHoveredPath] = useState<string | null>(null)
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
+  const rootLoaded = Object.prototype.hasOwnProperty.call(rowsByPath, '/')
   const rootRows = rowsByPath['/'] ?? []
+  const rootRow: TreeNodeRow = {
+    path: '/',
+    name: '/',
+    hasChildren: rootRows.length > 0,
+    dataLength: null,
+    mtime: null,
+  }
   const rootVisible = !query
     ? rootRows
     : rootRows.filter((row) => shouldRenderPath(row.path, query, rowsByPath))
@@ -573,34 +617,33 @@ export function TreePanel() {
             <div className="muted">{t('tree.loadingRoot')}</div>
           ) : null}
 
-          {rootRows.length === 0 ? (
+          {!rootLoaded ? (
             <div className="placeholder-row">{t('tree.loadRootHint')}</div>
           ) : (
             <ul aria-label="Loaded tree nodes" className="tree-list">
+              <TreeBranch
+                row={rootRow}
+                depth={0}
+                visibleIndexRef={visibleIndexRef}
+                expandedPaths={expandedPaths}
+                rowsByPath={{
+                  ...rowsByPath,
+                  '/': rootVisible,
+                }}
+                marksByPath={marksByPath}
+                query={query}
+                activePath={activePath}
+                hoveredPath={hoveredPath}
+                registerRowRef={registerRowRef}
+                onToggle={toggleNode}
+                onOpen={openNode}
+                onHover={setHoveredPath}
+                onQuickDelete={handleQuickDelete}
+                onContextMenu={handleTreeContextMenu}
+              />
               {rootVisible.length === 0 ? (
                 <li className="placeholder-row">{t('tree.noLoadedNodes')}</li>
-              ) : (
-                rootVisible.map((row) => (
-                  <TreeBranch
-                    key={row.path}
-                    row={row}
-                    depth={0}
-                    visibleIndexRef={visibleIndexRef}
-                    expandedPaths={expandedPaths}
-                    rowsByPath={rowsByPath}
-                    marksByPath={marksByPath}
-                    query={query}
-                    activePath={activePath}
-                    hoveredPath={hoveredPath}
-                    registerRowRef={registerRowRef}
-                    onToggle={toggleNode}
-                    onOpen={openNode}
-                    onHover={setHoveredPath}
-                    onQuickDelete={handleQuickDelete}
-                    onContextMenu={handleTreeContextMenu}
-                  />
-                ))
-              )}
+              ) : null}
             </ul>
           )}
 

@@ -523,6 +523,10 @@ function encodePermissions(
 
 function getErrorMessage(error: unknown, fallbackMessage?: string): string {
   if (error instanceof Error) {
+    if (fallbackMessage && /^Exception:\s+[A-Z_]+\[-?\d+\]$/.test(error.message)) {
+      return fallbackMessage
+    }
+
     return error.message
   }
 

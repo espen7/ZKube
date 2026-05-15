@@ -336,6 +336,14 @@ button {
   background: var(--bg-accent-soft);
 }
 
+.tree-row--root {
+  border-top-color: rgba(76, 120, 255, 0.18);
+  border-bottom-color: rgba(76, 120, 255, 0.18);
+  background:
+    linear-gradient(90deg, rgba(76, 120, 255, 0.06), transparent 42%),
+    var(--tree-row-odd);
+}
+
 .tree-row__node {
   display: flex;
   align-items: center;
@@ -374,6 +382,10 @@ button {
   height: 100%;
 }
 
+.tree-row--root .tree-row__icon {
+  color: var(--accent-strong);
+}
+
 .tree-row__open {
   display: inline-flex;
   flex: 1;
@@ -382,6 +394,11 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tree-row__open--root {
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .tree-row__mark {

@@ -223,8 +223,6 @@ ZKube can connect to real environments. Before using it against shared or produc
 
 - Chinese documentation: [README.zh-CN.md](./README.zh-CN.md)
 - Changelog: [CHANGELOG.md](./CHANGELOG.md)
-- Design spec: [docs/superpowers/specs/2026-05-13-zkube-desktop-design.md](./docs/superpowers/specs/2026-05-13-zkube-desktop-design.md)
-- Implementation plan: [docs/superpowers/plans/2026-05-13-zkube-desktop-v1.md](./docs/superpowers/plans/2026-05-13-zkube-desktop-v1.md)
 
 ## Roadmap
 

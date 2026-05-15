@@ -22,6 +22,9 @@ const messages: Record<Language, MessageDictionary> = {
     'workbench.markedNodes': 'MARK NODE',
     'workbench.noMarkedNodes': 'No marked nodes for this connection.',
     'workbench.empty': 'Open a node from the tree or search results to start editing.',
+    'workbench.removeMark': 'Remove mark',
+    'workbench.markedNodeMissing':
+      'This marked node no longer exists in ZooKeeper. Remove the mark or refresh the tree.',
     'workbench.refreshNode': 'Refresh node',
     'workbench.refreshConfirmTitle': 'Discard unsaved changes?',
     'workbench.refreshConfirmDescription':
@@ -180,7 +183,11 @@ const messages: Record<Language, MessageDictionary> = {
     'panel.runtimeFeedback': '运行反馈',
     'workbench.eyebrow': '工作台',
     'workbench.title': '节点标签',
+    'workbench.markedNodes': 'MARK NODE',
+    'workbench.noMarkedNodes': '当前连接下还没有标记节点。',
     'workbench.empty': '从节点树或搜索结果打开一个节点后，即可开始编辑。',
+    'workbench.removeMark': '删除标记',
+    'workbench.markedNodeMissing': '该标记节点已不存在。请删除标记或刷新节点树。',
     'workbench.refreshNode': '刷新节点',
     'workbench.refreshConfirmTitle': '放弃未保存的修改？',
     'workbench.refreshConfirmDescription': '刷新当前节点会用 ZooKeeper 里的最新数据覆盖本地未保存草稿。',

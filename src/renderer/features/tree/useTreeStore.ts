@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
+import type { AppErrorCode } from '../../../shared/errors'
 import type {
   NodeMarkColor,
   RuntimeEvent,
@@ -45,6 +46,10 @@ function setState(next: Partial<TreeState>) {
   emitChange()
 }
 
+function setFeedback(feedback: string | null) {
+  setState({ feedback })
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener)
   return () => listeners.delete(listener)
@@ -60,11 +65,38 @@ function cancelPendingSearches() {
 }
 
 function getErrorMessage(error: unknown): string {
+  const code = getErrorCode(error)
+  if (code === 'NODE_ALREADY_EXISTS') {
+    return 'A node with the same path already exists.'
+  }
+
   if (error instanceof Error && error.message) {
     return error.message
   }
 
   return 'Tree action failed. Please try again.'
+}
+
+function getErrorCode(error: unknown): AppErrorCode | null {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'code' in error &&
+    typeof error.code === 'string'
+  ) {
+    return error.code as AppErrorCode
+  }
+
+  if (error instanceof Error) {
+    if (
+      error.message.includes('NODE_ALREADY_EXISTS') ||
+      error.message.includes('NODE_EXISTS')
+    ) {
+      return 'NODE_ALREADY_EXISTS'
+    }
+  }
+
+  return null
 }
 
 function isLoading(path: string) {
@@ -224,11 +256,16 @@ async function loadChildren(path: string) {
     }
 
     completeLoad(path, requestId)
+    const nextExpandedPaths =
+      path === '/' && !state.expandedPaths.includes('/')
+        ? [...state.expandedPaths, '/']
+        : state.expandedPaths
     setState({
       rowsByPath: {
         ...state.rowsByPath,
         [path]: rows,
       },
+      expandedPaths: nextExpandedPaths,
       feedback: null,
       loadingPaths: state.loadingPaths.filter((entry) => entry !== path),
     })
@@ -256,6 +293,12 @@ async function revealPath(path: string) {
     await loadRoot()
   }
 
+  if (!state.expandedPaths.includes('/')) {
+    setState({
+      expandedPaths: [...state.expandedPaths, '/'],
+    })
+  }
+
   for (const ancestorPath of ancestors.slice(1)) {
     if (!state.expandedPaths.includes(ancestorPath)) {
       setState({
@@ -267,6 +310,41 @@ async function revealPath(path: string) {
       await loadChildren(ancestorPath)
     }
   }
+}
+
+async function hasNodePath(path: string) {
+  if (path === '/') {
+    return true
+  }
+
+  if (!window.zkube?.zookeeper.loadChildren) {
+    return false
+  }
+
+  const segments = path.split('/').filter(Boolean)
+  let currentParent = '/'
+
+  if (!state.rowsByPath['/']) {
+    await loadRoot()
+  }
+
+  for (const segment of segments) {
+    if (!state.rowsByPath[currentParent]) {
+      await loadChildren(currentParent)
+    }
+
+    const childPath = joinChildPath(currentParent, segment)
+    const childRows = state.rowsByPath[currentParent] ?? []
+    const nextRow = childRows.find((row) => row.path === childPath)
+
+    if (!nextRow) {
+      return false
+    }
+
+    currentParent = childPath
+  }
+
+  return true
 }
 
 async function refreshTree() {
@@ -329,6 +407,9 @@ async function refreshTree() {
   }
 
   nextRowsByPath['/'] = rootRows
+  if (expandedSet.has('/')) {
+    nextExpandedPaths.push('/')
+  }
   await reloadExpandedBranches(rootRows)
 
   setState({
@@ -483,11 +564,37 @@ async function createChildNode(
     return false
   }
 
+  const containingPath = parentPath(parentNodePath)
+  const parentRowBefore =
+    parentNodePath === '/'
+      ? null
+      : (state.rowsByPath[containingPath] ?? []).find(
+          (row) => row.path === parentNodePath,
+        ) ?? null
+  const shouldAutoExpandNewBranch = parentRowBefore?.hasChildren === false
+
   try {
     await window.zkube.zookeeper.create(
       joinChildPath(parentNodePath, trimmedName),
       new TextEncoder().encode(initialData),
     )
+
+    await refreshBranch(parentNodePath)
+
+    if (containingPath !== parentNodePath) {
+      await refreshBranch(containingPath)
+    }
+
+    if (shouldAutoExpandNewBranch) {
+      if (!state.expandedPaths.includes(parentNodePath)) {
+        setState({
+          expandedPaths: [...state.expandedPaths, parentNodePath],
+        })
+      }
+
+      await loadChildren(parentNodePath)
+    }
+
     setState({ feedback: null })
     return true
   } catch (error) {
@@ -576,7 +683,9 @@ export function useTreeStore() {
 
   return {
     ...snapshot,
+    setFeedback,
     loadRoot,
+    hasNodePath,
     revealPath,
     refreshTree,
     toggleNode,

@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import type { MouseEvent } from 'react'
+
+import type { NodeMarkColor } from '../../../shared/models/node'
 
 import { useConnectionsStore } from '../connections/useConnectionsStore'
 import { useTreeStore } from '../tree/useTreeStore'
@@ -16,10 +19,23 @@ function getMarkOrder(
   return pathA.localeCompare(pathB)
 }
 
+type MarkContextMenuState = {
+  path: string
+  color: NodeMarkColor
+  x: number
+  y: number
+}
+
 export function NodeWorkbench() {
   const { t } = useI18n()
   const { activeConnectionId } = useConnectionsStore()
-  const { marksByPath, revealPath } = useTreeStore()
+  const {
+    marksByPath,
+    clearNodeMark,
+    hasNodePath,
+    revealPath,
+    setFeedback,
+  } = useTreeStore()
   const {
     activePath,
     tabs,
@@ -34,6 +50,8 @@ export function NodeWorkbench() {
     saveTab,
   } = useWorkbenchStore()
   const [refreshConfirmOpen, setRefreshConfirmOpen] = useState(false)
+  const [markContextMenu, setMarkContextMenu] =
+    useState<MarkContextMenuState | null>(null)
 
   const activeTab = tabs.find((tab) => tab.path === activePath) ?? null
   const hasUnsavedChanges =
@@ -66,6 +84,30 @@ export function NodeWorkbench() {
     }
   }, [activeTab?.path])
 
+  useEffect(() => {
+    if (!markContextMenu) {
+      return undefined
+    }
+
+    const handleWindowInteraction = () => {
+      setMarkContextMenu(null)
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMarkContextMenu(null)
+      }
+    }
+
+    window.addEventListener('click', handleWindowInteraction)
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('click', handleWindowInteraction)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [markContextMenu])
+
   async function handleRefreshNode() {
     if (!activeTab) {
       return
@@ -79,9 +121,31 @@ export function NodeWorkbench() {
     await refreshTab(activeTab.path)
   }
 
-  function handleMarkedNodeClick(path: string) {
+  async function handleMarkedNodeClick(path: string) {
+    const nodeExists = await hasNodePath(path)
+
+    if (!nodeExists) {
+      setFeedback(t('workbench.markedNodeMissing'))
+      return
+    }
+
+    setFeedback(null)
     openNode(path)
     void revealPath(path)
+  }
+
+  function handleMarkedNodeContextMenu(
+    event: MouseEvent<HTMLButtonElement>,
+    path: string,
+    color: NodeMarkColor,
+  ) {
+    event.preventDefault()
+    setMarkContextMenu({
+      path,
+      color,
+      x: event.clientX,
+      y: event.clientY,
+    })
   }
 
   return (
@@ -121,7 +185,10 @@ export function NodeWorkbench() {
                       .filter(Boolean)
                       .join(' ')}
                     aria-pressed={activeTab?.path === path}
-                    onClick={() => handleMarkedNodeClick(path)}
+                    onClick={() => void handleMarkedNodeClick(path)}
+                    onContextMenu={(event) =>
+                      handleMarkedNodeContextMenu(event, path, color)
+                    }
                     title={path}
                   >
                     <span
@@ -205,6 +272,26 @@ export function NodeWorkbench() {
           ) : null}
         </div>
       </div>
+
+      {markContextMenu ? (
+        <div
+          className="context-menu"
+          role="menu"
+          style={{ left: `${markContextMenu.x}px`, top: `${markContextMenu.y}px` }}
+        >
+          <button
+            className="context-menu__item"
+            role="menuitem"
+            type="button"
+            onClick={() => {
+              setMarkContextMenu(null)
+              void clearNodeMark(activeConnectionId, markContextMenu.path)
+            }}
+          >
+            {t('workbench.removeMark')}
+          </button>
+        </div>
+      ) : null}
 
       {refreshConfirmOpen && activeTab ? (
         <div className="dialog-backdrop dialog-backdrop--overlay">

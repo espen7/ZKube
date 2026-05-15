@@ -257,6 +257,40 @@ describe('Tree panel', () => {
     expect(searchMock).not.toHaveBeenCalled()
   })
 
+  it('renders an explicit root row so root-level node actions stay accessible', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
+    })
+
+    const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
+    const rootRow = within(loadedTree)
+      .getByRole('button', { name: 'Open node /' })
+      .closest('.tree-row')
+
+    expect(rootRow).toBeDefined()
+    expect(rootRow).toHaveClass('tree-row--root')
+    expect(within(rootRow as HTMLElement).getByText('/')).toBeInTheDocument()
+    expect(
+      within(rootRow as HTMLElement).getByRole('button', { name: 'Collapse' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('configs')).toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.contextMenu(rootRow as HTMLElement)
+    })
+
+    expect(
+      await screen.findByRole('menuitem', { name: 'Create child node' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('menuitem', { name: 'Delete node' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('expands a loaded child by requesting the absolute child path', async () => {
     await act(async () => {
       render(<App />)
@@ -268,8 +302,8 @@ describe('Tree panel', () => {
 
     const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     const servicesRow = within(loadedTree)
-      .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('services'))
+      .getByText('services')
+      .closest('.tree-row')
 
     expect(servicesRow).toBeDefined()
 
@@ -565,8 +599,8 @@ describe('Tree panel', () => {
 
     const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     const servicesRow = within(loadedTree)
-      .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('services'))
+      .getByText('services')
+      .closest('.tree-row')
 
     expect(servicesRow).toBeDefined()
 
@@ -601,8 +635,8 @@ describe('Tree panel', () => {
 
     let loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     let servicesRow = within(loadedTree)
-      .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('services'))
+      .getByText('services')
+      .closest('.tree-row')
 
     expect(servicesRow).toBeDefined()
 
@@ -645,8 +679,8 @@ describe('Tree panel', () => {
 
     loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     servicesRow = within(loadedTree)
-      .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('services'))
+      .getByText('services')
+      .closest('.tree-row')
 
     expect(servicesRow).toBeDefined()
 
@@ -699,8 +733,8 @@ describe('Tree panel', () => {
 
     const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     const servicesRow = within(loadedTree)
-      .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('services'))
+      .getByText('services')
+      .closest('.tree-row')
 
     expect(servicesRow).toBeDefined()
 
@@ -750,11 +784,11 @@ describe('Tree panel', () => {
 
     const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     const servicesRow = within(loadedTree)
-      .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('services'))
+      .getByText('services')
+      .closest('.tree-row')
     const brokenRow = within(loadedTree)
-      .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('broken'))
+      .getByText('broken')
+      .closest('.tree-row')
 
     expect(servicesRow).toBeDefined()
     expect(brokenRow).toBeDefined()
@@ -790,8 +824,8 @@ describe('Tree panel', () => {
 
     expect(branchRow).toBeTruthy()
     expect(leafRow).toBeTruthy()
-    expect(branchRow).toHaveClass('tree-row--odd')
-    expect(leafRow).toHaveClass('tree-row--even')
+    expect(branchRow).toHaveClass('tree-row--even')
+    expect(leafRow).toHaveClass('tree-row--odd')
     expect(within(leafRow as HTMLElement).getByText('22d')).toBeInTheDocument()
     expect(within(leafRow as HTMLElement).getByText('128B')).toBeInTheDocument()
 
@@ -826,6 +860,12 @@ describe('Tree panel', () => {
     const servicesRow = (await screen.findByText('services')).closest('.tree-row')
     expect(servicesRow).toBeTruthy()
 
+    await act(async () => {
+      fireEvent.click(
+        within(servicesRow as HTMLElement).getByRole('button', { name: 'Expand' }),
+      )
+    })
+
     fireEvent.contextMenu(servicesRow as HTMLElement)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Create child node' }))
 
@@ -843,6 +883,260 @@ describe('Tree panel', () => {
     expect(createMock).toHaveBeenCalledWith(
       '/services/worker',
       new TextEncoder().encode('{"enabled":true}'),
+    )
+  })
+
+  it('refreshes and auto-expands a leaf row that becomes a branch after child creation', async () => {
+    const treeRows: Record<string, TreeNodeRow[]> = {
+      '/': [
+        createRow('/services', {
+          hasChildren: true,
+          dataLength: 2_048,
+          mtime: Date.now() - 120_000,
+        }),
+      ],
+      '/services': [
+        createRow('/services/t1', {
+          hasChildren: false,
+          dataLength: 16,
+          mtime: Date.now() - 30_000,
+        }),
+      ],
+      '/services/t1': [],
+    }
+
+    loadChildrenMock.mockImplementation(async (path: string) =>
+      (treeRows[path] ?? []).map((row) => ({ ...row })),
+    )
+    createMock.mockImplementation(async (path: string, data: Uint8Array) => {
+      const segments = path.split('/').filter(Boolean)
+      const parent =
+        segments.length <= 1 ? '/' : `/${segments.slice(0, -1).join('/')}`
+      const ancestor =
+        parent === '/'
+          ? '/'
+          : segments.length <= 2
+            ? '/'
+            : `/${segments.slice(0, -2).join('/')}`
+
+      treeRows[parent] = [
+        ...(treeRows[parent] ?? []),
+        createRow(path, {
+          hasChildren: false,
+          dataLength: data.length,
+          mtime: Date.now() - 5_000,
+        }),
+      ]
+
+      treeRows[ancestor] = (treeRows[ancestor] ?? []).map((row) =>
+        row.path === parent
+          ? {
+              ...row,
+              hasChildren: true,
+            }
+          : row,
+      )
+    })
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'connect connection Readonly',
+        }),
+      )
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
+    })
+
+    const servicesRow = (await screen.findByText('services')).closest('.tree-row')
+    expect(servicesRow).toBeTruthy()
+
+    await act(async () => {
+      fireEvent.click(
+        within(servicesRow as HTMLElement).getByRole('button', { name: 'Expand' }),
+      )
+    })
+
+    const t1Row = (await screen.findByText('t1')).closest('.tree-row')
+    expect(t1Row).toBeTruthy()
+    expect(
+      within(t1Row as HTMLElement).queryByRole('button', { name: 'Expand' }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.contextMenu(t1Row as HTMLElement)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Create child node' }))
+
+    fireEvent.change(screen.getByLabelText('child node name'), {
+      target: { value: 't2' },
+    })
+
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('dialog', { name: 'Create child node' }))
+    })
+
+    await act(async () => {
+      emitRuntimeEvent({
+        type: 'nodeChildrenChanged',
+        path: '/services/t1',
+      })
+    })
+
+    const updatedT1Row = (await screen.findByText('t1')).closest('.tree-row')
+    expect(updatedT1Row).toBeTruthy()
+    expect(
+      within(updatedT1Row as HTMLElement).getByRole('button', {
+        name: 'Collapse',
+      }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText('t2')).toBeInTheDocument()
+  })
+
+  it('shows the newly created child immediately when creating under a leaf node', async () => {
+    const treeRows: Record<string, TreeNodeRow[]> = {
+      '/': [
+        createRow('/services', {
+          hasChildren: true,
+          dataLength: 2_048,
+          mtime: Date.now() - 120_000,
+        }),
+      ],
+      '/services': [
+        createRow('/services/t1', {
+          hasChildren: false,
+          dataLength: 16,
+          mtime: Date.now() - 30_000,
+        }),
+      ],
+      '/services/t1': [],
+    }
+
+    loadChildrenMock.mockImplementation(async (path: string) =>
+      (treeRows[path] ?? []).map((row) => ({ ...row })),
+    )
+    createMock.mockImplementation(async (path: string, data: Uint8Array) => {
+      const segments = path.split('/').filter(Boolean)
+      const parent =
+        segments.length <= 1 ? '/' : `/${segments.slice(0, -1).join('/')}`
+      const ancestor =
+        parent === '/'
+          ? '/'
+          : segments.length <= 2
+            ? '/'
+            : `/${segments.slice(0, -2).join('/')}`
+
+      treeRows[parent] = [
+        ...(treeRows[parent] ?? []),
+        createRow(path, {
+          hasChildren: false,
+          dataLength: data.length,
+          mtime: Date.now() - 5_000,
+        }),
+      ]
+
+      treeRows[ancestor] = (treeRows[ancestor] ?? []).map((row) =>
+        row.path === parent
+          ? {
+              ...row,
+              hasChildren: true,
+            }
+          : row,
+      )
+    })
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'connect connection Readonly',
+        }),
+      )
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
+    })
+
+    const servicesRow = (await screen.findByText('services')).closest('.tree-row')
+    expect(servicesRow).toBeTruthy()
+
+    await act(async () => {
+      fireEvent.click(
+        within(servicesRow as HTMLElement).getByRole('button', { name: 'Expand' }),
+      )
+    })
+
+    const t1Row = (await screen.findByText('t1')).closest('.tree-row')
+    expect(t1Row).toBeTruthy()
+    expect(
+      within(t1Row as HTMLElement).queryByRole('button', { name: 'Expand' }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.contextMenu(t1Row as HTMLElement)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Create child node' }))
+
+    fireEvent.change(screen.getByLabelText('child node name'), {
+      target: { value: 't2' },
+    })
+
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('dialog', { name: 'Create child node' }))
+    })
+
+    expect(await screen.findByText('t2')).toBeInTheDocument()
+    const expandedT1Row = (await screen.findByText('t1')).closest('.tree-row')
+    expect(
+      within(expandedT1Row as HTMLElement).getByRole('button', { name: 'Collapse' }),
+    ).toBeInTheDocument()
+  })
+
+  it('shows a friendly message when creating a duplicate node', async () => {
+    createMock.mockRejectedValueOnce(
+      Object.assign(new Error('Exception: NODE_EXISTS[-110]'), {
+        code: 'NODE_ALREADY_EXISTS',
+      }),
+    )
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole('button', {
+          name: 'connect connection Readonly',
+        }),
+      )
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
+    })
+
+    const rootRow = (await screen.findByText('/')).closest('.tree-row')
+    expect(rootRow).toBeTruthy()
+
+    fireEvent.contextMenu(rootRow as HTMLElement)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Create child node' }))
+
+    fireEvent.change(screen.getByLabelText('child node name'), {
+      target: { value: 'services' },
+    })
+
+    await act(async () => {
+      fireEvent.submit(screen.getByRole('dialog', { name: 'Create child node' }))
+    })
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      /same path already exists/i,
     )
   })
 
@@ -916,8 +1210,8 @@ describe('Tree panel', () => {
 
     let loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
     let servicesRow = within(loadedTree)
-      .getAllByRole('listitem')
-      .find((item) => within(item).queryByText('services'))
+      .getByText('services')
+      .closest('.tree-row')
 
     expect(servicesRow).toBeDefined()
 

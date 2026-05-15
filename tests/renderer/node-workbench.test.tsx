@@ -70,6 +70,11 @@ describe('node workbench', () => {
   let connectionsListMock: ReturnType<typeof vi.fn>
   let connectMock: ReturnType<typeof vi.fn<(connectionId: string) => Promise<void>>>
   let nodeMarksListMock: ReturnType<typeof vi.fn>
+  let nodeMarksClearMock: ReturnType<
+    typeof vi.fn<
+      (connectionId: string, path: string, recursive?: boolean) => Promise<void>
+    >
+  >
   let loadChildrenMock: ReturnType<
     typeof vi.fn<(path: string) => Promise<TreeNodeRow[]>>
   >
@@ -98,6 +103,9 @@ describe('node workbench', () => {
     connectionsListMock = vi.fn().mockResolvedValue([] satisfies StoredConnection[])
     connectMock = vi.fn<(connectionId: string) => Promise<void>>().mockResolvedValue(undefined)
     nodeMarksListMock = vi.fn().mockResolvedValue({} satisfies Record<string, NodeMarkColor>)
+    nodeMarksClearMock = vi
+      .fn<(connectionId: string, path: string, recursive?: boolean) => Promise<void>>()
+      .mockResolvedValue(undefined)
     loadChildrenMock = vi
       .fn<(path: string) => Promise<TreeNodeRow[]>>()
       .mockResolvedValue([])
@@ -129,7 +137,8 @@ describe('node workbench', () => {
             ) => Promise<Record<string, NodeMarkColor>>
           )(connectionId),
         set: vi.fn(),
-        clear: vi.fn(),
+        clear: (connectionId: string, path: string, recursive?: boolean) =>
+          nodeMarksClearMock(connectionId, path, recursive),
       },
       zookeeper: {
         disconnect: vi.fn(),
@@ -503,6 +512,45 @@ describe('node workbench', () => {
       '/config/service': 'red',
       '/config/service/child': 'green',
     })
+    loadChildrenMock.mockImplementation(async (path: string) => {
+      if (path === '/') {
+        return [
+          {
+            path: '/config',
+            name: 'config',
+            hasChildren: true,
+            dataLength: 0,
+            mtime: Date.now() - 60_000,
+          },
+        ]
+      }
+
+      if (path === '/config') {
+        return [
+          {
+            path: '/config/service',
+            name: 'service',
+            hasChildren: true,
+            dataLength: 0,
+            mtime: Date.now() - 60_000,
+          },
+        ]
+      }
+
+      if (path === '/config/service') {
+        return [
+          {
+            path: '/config/service/child',
+            name: 'child',
+            hasChildren: false,
+            dataLength: 10,
+            mtime: Date.now() - 60_000,
+          },
+        ]
+      }
+
+      return []
+    })
 
     await act(async () => {
       render(<App />)
@@ -607,6 +655,113 @@ describe('node workbench', () => {
     } finally {
       Element.prototype.scrollIntoView = originalScrollIntoView
     }
+  })
+
+  it('removes a local mark from the marked nodes list via context menu', async () => {
+    connectionsListMock.mockResolvedValueOnce([
+      {
+        id: 'readonly-1',
+        name: 'Readonly',
+        hosts: '192.168.171.15:2181',
+        updatedAt: '2026-05-14T10:00:00.000Z',
+      },
+    ])
+    nodeMarksListMock.mockResolvedValueOnce({
+      '/config/service': 'red',
+    })
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /connect connection readonly/i }),
+    )
+
+    const markedNode = await screen.findByRole('button', {
+      name: '/config/service',
+    })
+
+    fireEvent.contextMenu(markedNode)
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Remove mark' }))
+    })
+
+    expect(nodeMarksClearMock).toHaveBeenCalledWith(
+      'readonly-1',
+      '/config/service',
+      false,
+    )
+    expect(
+      screen.queryByRole('button', { name: '/config/service' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows a missing-node message instead of jumping when a marked node no longer exists', async () => {
+    connectionsListMock.mockResolvedValueOnce([
+      {
+        id: 'readonly-1',
+        name: 'Readonly',
+        hosts: '192.168.171.15:2181',
+        updatedAt: '2026-05-14T10:00:00.000Z',
+      },
+    ])
+    nodeMarksListMock.mockResolvedValueOnce({
+      '/config/service/child': 'green',
+    })
+    loadChildrenMock.mockImplementation(async (path: string) => {
+      if (path === '/') {
+        return [
+          {
+            path: '/config',
+            name: 'config',
+            hasChildren: true,
+            dataLength: 0,
+            mtime: Date.now() - 60_000,
+          },
+        ]
+      }
+
+      if (path === '/config') {
+        return [
+          {
+            path: '/config/service',
+            name: 'service',
+            hasChildren: true,
+            dataLength: 0,
+            mtime: Date.now() - 60_000,
+          },
+        ]
+      }
+
+      if (path === '/config/service') {
+        return []
+      }
+
+      return []
+    })
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /connect connection readonly/i }),
+    )
+
+    await act(async () => {
+      fireEvent.click(
+        await screen.findByRole('button', { name: '/config/service/child' }),
+      )
+    })
+
+    expect(openMock).not.toHaveBeenCalled()
+    expect(
+      await screen.findByText(
+        'This marked node no longer exists in ZooKeeper. Remove the mark or refresh the tree.',
+      ),
+    ).toBeInTheDocument()
   })
 
   it('confirms before refreshing when the active node has unsaved draft changes', async () => {
