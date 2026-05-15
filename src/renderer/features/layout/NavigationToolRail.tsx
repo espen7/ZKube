@@ -246,14 +246,6 @@ export function NavigationToolRail() {
             <AddIcon />
           </RailButton>
           <RailButton
-            label={t('tool.openSettings')}
-            onClick={() => {
-              void window.zkube?.preferences?.openSettingsWindow()
-            }}
-          >
-            <SettingsIcon />
-          </RailButton>
-          <RailButton
             label={t('tool.importConnections')}
             onClick={() => {
               void importFromFile()
@@ -272,6 +264,14 @@ export function NavigationToolRail() {
         </div>
 
         <div className="tool-rail__group tool-rail__group--bottom">
+          <RailButton
+            label={t('tool.openSettings')}
+            onClick={() => {
+              void window.zkube?.preferences?.openSettingsWindow()
+            }}
+          >
+            <SettingsIcon />
+          </RailButton>
           <RailButton
             label={t('tool.about')}
             onClick={() => {

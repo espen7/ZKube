@@ -116,6 +116,12 @@ describe('navigation workspace layout', () => {
     expect(
       within(toolRail).getByRole('button', { name: /about zkube/i }),
     ).toBeInTheDocument()
+    const bottomGroup = toolRail.querySelector('.tool-rail__group--bottom')
+    expect(bottomGroup).not.toBeNull()
+    const bottomButtons = within(bottomGroup as HTMLElement).getAllByRole('button')
+    expect(bottomButtons).toHaveLength(2)
+    expect(bottomButtons[0]).toHaveAttribute('aria-label', 'open settings')
+    expect(bottomButtons[1]).toHaveAttribute('aria-label', 'about zkube')
     expect(
       within(navigationWorkspace).getByLabelText('Connections sidebar'),
     ).toBeInTheDocument()
