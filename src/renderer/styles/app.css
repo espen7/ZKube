@@ -391,6 +391,7 @@ button {
   flex: 1;
   align-items: center;
   min-width: 0;
+  font-family: var(--font-family-mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -428,6 +429,7 @@ button {
 .tree-row__size,
 .tree-row__updated {
   color: var(--text-muted);
+  font-family: var(--font-family-mono);
   font-variant-numeric: tabular-nums;
   transition:
     transform 140ms ease,
@@ -728,6 +730,10 @@ button:disabled {
   white-space: nowrap;
 }
 
+.status-bar__identity {
+  font-family: var(--font-family-mono);
+}
+
 .status-bar__watchers {
   white-space: nowrap;
 }
@@ -745,11 +751,7 @@ button:disabled {
 }
 
 .inspector-summary__path-value {
-  font-family:
-    'Cascadia Code',
-    'JetBrains Mono',
-    'Consolas',
-    monospace;
+  font-family: var(--font-family-mono);
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
@@ -769,6 +771,7 @@ button:disabled {
   min-width: 0;
   margin: 0;
   text-align: right;
+  font-family: var(--font-family-mono);
   overflow-wrap: anywhere;
 }
 
@@ -877,6 +880,7 @@ button:disabled {
 .workbench-mark-list__path {
   display: inline-flex;
   min-width: 0;
+  font-family: var(--font-family-mono);
   overflow-wrap: anywhere;
 }
 
@@ -895,11 +899,7 @@ button:disabled {
 
 .node-editor__path {
   max-width: 100%;
-  font-family:
-    'Cascadia Code',
-    'JetBrains Mono',
-    'Consolas',
-    monospace;
+  font-family: var(--font-family-mono);
   overflow-wrap: anywhere;
 }
 

@@ -133,6 +133,7 @@ export function NodeEditor({
               language={getLanguage(value)}
               options={{
                 automaticLayout: true,
+                fontFamily: 'JetBrains Mono, Cascadia Code, Consolas, monospace',
                 fontSize: fontSizePx,
                 minimap: { enabled: false },
                 readOnly: showLoading,

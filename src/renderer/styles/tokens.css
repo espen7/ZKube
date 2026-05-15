@@ -1,10 +1,53 @@
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/jetbrains-mono/JetBrainsMono-Regular.woff2')
+    format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/jetbrains-mono/JetBrainsMono-Medium.woff2')
+    format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/jetbrains-mono/JetBrainsMono-SemiBold.woff2')
+    format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('../assets/fonts/jetbrains-mono/JetBrainsMono-Bold.woff2')
+    format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --font-size-base: 14px;
-  font-family:
+  --font-family-ui:
     'Segoe UI',
     'PingFang SC',
     'Microsoft YaHei',
     sans-serif;
+  --font-family-mono:
+    'JetBrains Mono',
+    'Cascadia Code',
+    'Consolas',
+    monospace;
+  font-family:
+    var(--font-family-ui);
   font-size: var(--font-size-base);
   --radius-lg: 22px;
   --radius-md: 16px;
