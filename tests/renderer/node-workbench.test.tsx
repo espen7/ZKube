@@ -24,11 +24,14 @@ vi.mock('@monaco-editor/react', () => ({
 }))
 
 import App from '../../src/renderer/App'
+import { resetConnectionsStore } from '../../src/renderer/features/connections/useConnectionsStore'
+import { resetTreeStore } from '../../src/renderer/features/tree/useTreeStore'
 import { formatJson, formatXml } from '../../src/renderer/features/workbench/formatters'
 import { useWorkbenchStore } from '../../src/renderer/stores/useWorkbenchStore'
 import type { StoredConnection } from '../../src/shared/models/connection'
 import type { NodeMarkColor } from '../../src/shared/models/node'
 import type { NodeSnapshot, RuntimeEvent } from '../../src/shared/models/node'
+import type { TreeNodeRow } from '../../src/shared/models/node'
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -67,6 +70,9 @@ describe('node workbench', () => {
   let connectionsListMock: ReturnType<typeof vi.fn>
   let connectMock: ReturnType<typeof vi.fn<(connectionId: string) => Promise<void>>>
   let nodeMarksListMock: ReturnType<typeof vi.fn>
+  let loadChildrenMock: ReturnType<
+    typeof vi.fn<(path: string) => Promise<TreeNodeRow[]>>
+  >
   let saveAclMock: ReturnType<
     typeof vi.fn<
       (path: string, acl: NodeSnapshot['acl']) => Promise<void>
@@ -92,6 +98,9 @@ describe('node workbench', () => {
     connectionsListMock = vi.fn().mockResolvedValue([] satisfies StoredConnection[])
     connectMock = vi.fn<(connectionId: string) => Promise<void>>().mockResolvedValue(undefined)
     nodeMarksListMock = vi.fn().mockResolvedValue({} satisfies Record<string, NodeMarkColor>)
+    loadChildrenMock = vi
+      .fn<(path: string) => Promise<TreeNodeRow[]>>()
+      .mockResolvedValue([])
     saveAclMock = vi
       .fn<(path: string, acl: NodeSnapshot['acl']) => Promise<void>>()
       .mockResolvedValue(undefined)
@@ -124,7 +133,7 @@ describe('node workbench', () => {
       },
       zookeeper: {
         disconnect: vi.fn(),
-        loadChildren: vi.fn().mockResolvedValue([]),
+        loadChildren: loadChildrenMock,
         open: openMock,
         search: vi.fn().mockResolvedValue([]),
         create: vi.fn(),
@@ -146,6 +155,8 @@ describe('node workbench', () => {
   afterEach(async () => {
     const workbenchModule = await import('../../src/renderer/stores/useWorkbenchStore')
     workbenchModule.resetWorkbenchStore()
+    resetConnectionsStore()
+    resetTreeStore()
     runtimeListeners.clear()
     window.zkube = originalZkube
   })
@@ -509,6 +520,93 @@ describe('node workbench', () => {
     })
 
     expect(openMock).toHaveBeenCalledWith('/config/service/child')
+  })
+
+  it('reveals the marked node inside the tree and scrolls it into view when clicked', async () => {
+    const scrollIntoViewMock = vi.fn()
+    const originalScrollIntoView = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoViewMock
+
+    connectionsListMock.mockResolvedValueOnce([
+      {
+        id: 'readonly-1',
+        name: 'Readonly',
+        hosts: '192.168.171.15:2181',
+        updatedAt: '2026-05-14T10:00:00.000Z',
+      },
+    ])
+    nodeMarksListMock.mockResolvedValueOnce({
+      '/config/service/child': 'green',
+    })
+    loadChildrenMock.mockImplementation(async (path: string) => {
+      if (path === '/') {
+        return [
+          {
+            path: '/config',
+            name: 'config',
+            hasChildren: true,
+            dataLength: 0,
+            mtime: Date.now() - 60_000,
+          },
+        ]
+      }
+
+      if (path === '/config') {
+        return [
+          {
+            path: '/config/service',
+            name: 'service',
+            hasChildren: true,
+            dataLength: 0,
+            mtime: Date.now() - 60_000,
+          },
+        ]
+      }
+
+      if (path === '/config/service') {
+        return [
+          {
+            path: '/config/service/child',
+            name: 'child',
+            hasChildren: false,
+            dataLength: 10,
+            mtime: Date.now() - 60_000,
+          },
+        ]
+      }
+
+      return []
+    })
+
+    try {
+      await act(async () => {
+        render(<App />)
+      })
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: /connect connection readonly/i }),
+      )
+
+      await act(async () => {
+        fireEvent.click(
+          await screen.findByRole('button', { name: '/config/service/child' }),
+        )
+      })
+
+      expect(loadChildrenMock).toHaveBeenCalledWith('/')
+      expect(loadChildrenMock).toHaveBeenCalledWith('/config')
+      expect(loadChildrenMock).toHaveBeenCalledWith('/config/service')
+      const treeRegion = screen.getByLabelText('Tree content region')
+      expect(
+        await within(treeRegion).findByTitle('/config/service/child'),
+      ).toBeInTheDocument()
+      expect(scrollIntoViewMock).toHaveBeenCalledWith({
+        block: 'center',
+        inline: 'nearest',
+      })
+    } finally {
+      Element.prototype.scrollIntoView = originalScrollIntoView
+    }
   })
 
   it('confirms before refreshing when the active node has unsaved draft changes', async () => {

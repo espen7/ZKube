@@ -107,6 +107,21 @@ function joinChildPath(parent: string, childName: string) {
   return parent === '/' ? `/${childName}` : `${parent}/${childName}`
 }
 
+function getAncestorChain(path: string) {
+  if (path === '/') {
+    return ['/']
+  }
+
+  const segments = path.split('/').filter(Boolean)
+  const chain = ['/']
+
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    chain.push(`/${segments.slice(0, index + 1).join('/')}`)
+  }
+
+  return chain
+}
+
 function cancelLoadsForPath(targetPath: string) {
   for (const path of Array.from(loadRequestIds.keys())) {
     if (isSameOrDescendantPath(path, targetPath)) {
@@ -232,6 +247,26 @@ async function loadChildren(path: string) {
 
 async function loadRoot() {
   await loadChildren('/')
+}
+
+async function revealPath(path: string) {
+  const ancestors = getAncestorChain(path)
+
+  if (!state.rowsByPath['/']) {
+    await loadRoot()
+  }
+
+  for (const ancestorPath of ancestors.slice(1)) {
+    if (!state.expandedPaths.includes(ancestorPath)) {
+      setState({
+        expandedPaths: [...state.expandedPaths, ancestorPath],
+      })
+    }
+
+    if (!state.rowsByPath[ancestorPath]) {
+      await loadChildren(ancestorPath)
+    }
+  }
 }
 
 async function refreshTree() {
@@ -542,6 +577,7 @@ export function useTreeStore() {
   return {
     ...snapshot,
     loadRoot,
+    revealPath,
     refreshTree,
     toggleNode,
     setQuery,

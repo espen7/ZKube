@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 
 import type {
@@ -9,19 +9,24 @@ import { useI18n } from '../../use-i18n'
 import { useConnectionsStore } from '../connections/useConnectionsStore'
 import { useWorkbenchStore } from '../../stores/useWorkbenchStore'
 import { TreeSearchBar } from './TreeSearchBar'
-import { formatBytes, formatRelativeTime } from './tree-formatters'
+import { formatBytesCompact, formatRelativeTimeCompact } from './tree-formatters'
 import { useTreeStore } from './useTreeStore'
 
 type TreeBranchProps = {
   row: TreeNodeRow
   depth: number
+  visibleIndexRef: { value: number }
   expandedPaths: string[]
   rowsByPath: Record<string, TreeNodeRow[]>
   marksByPath: Record<string, NodeMarkColor>
   query: string
   activePath: string | null
+  hoveredPath: string | null
+  registerRowRef: (path: string, element: HTMLDivElement | null) => void
   onToggle: (path: string) => void
   onOpen: (path: string) => void
+  onHover: (path: string | null) => void
+  onQuickDelete: (row: TreeNodeRow) => void
   onContextMenu: (event: MouseEvent<HTMLDivElement>, row: TreeNodeRow) => void
 }
 
@@ -88,16 +93,36 @@ function FileIcon() {
   )
 }
 
+function DeleteIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20">
+      <path
+        d="M6.5 6.5v8m3-8v8m3-8v8M4.5 5h11m-8-2h5m-7 2 .7 10.2A1.5 1.5 0 0 0 7.7 16.6h4.6a1.5 1.5 0 0 0 1.5-1.4L14.5 5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 function TreeBranch({
   row,
   depth,
+  visibleIndexRef,
   expandedPaths,
   rowsByPath,
   marksByPath,
   query,
   activePath,
+  hoveredPath,
+  registerRowRef,
   onToggle,
   onOpen,
+  onHover,
+  onQuickDelete,
   onContextMenu,
 }: TreeBranchProps) {
   const { t } = useI18n()
@@ -109,8 +134,13 @@ function TreeBranch({
   const childRows = rowsByPath[row.path] ?? []
   const isExpanded = expandedPaths.includes(row.path)
   const isSelected = activePath === row.path
+  const isHovered = hoveredPath === row.path
+  const isLeafQuickDelete = !row.hasChildren && row.path !== '/'
+  const visibleIndex = visibleIndexRef.value
+  visibleIndexRef.value += 1
   const rowClassName = [
     'tree-row',
+    visibleIndex % 2 === 0 ? 'tree-row--odd' : 'tree-row--even',
     isSelected ? 'tree-row--selected' : '',
   ]
     .filter(Boolean)
@@ -122,10 +152,14 @@ function TreeBranch({
       <div
         aria-label={`Open node ${row.path}`}
         className={rowClassName}
+        data-tree-path={row.path}
         role="button"
+        ref={(element) => registerRowRef(row.path, element)}
         tabIndex={0}
         onClick={() => onOpen(row.path)}
         onContextMenu={(event) => onContextMenu(event, row)}
+        onMouseEnter={() => onHover(row.path)}
+        onMouseLeave={() => onHover(null)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault()
@@ -171,8 +205,23 @@ function TreeBranch({
             />
           ) : null}
         </div>
-        <div className="tree-row__size">{formatBytes(row.dataLength)}</div>
-        <div className="tree-row__updated">{formatRelativeTime(row.mtime)}</div>
+        <div className="tree-row__size">{formatBytesCompact(row.dataLength)}</div>
+        <div className="tree-row__updated">{formatRelativeTimeCompact(row.mtime)}</div>
+        <div className="tree-row__action">
+          {isLeafQuickDelete && isHovered ? (
+            <button
+              aria-label={t('tree.deleteNode')}
+              className="tree-row__delete"
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onQuickDelete(row)
+              }}
+            >
+              <DeleteIcon />
+            </button>
+          ) : null}
+        </div>
       </div>
       {isExpanded && childRows.length > 0 ? (
         <ul className="tree-list tree-list--nested">
@@ -181,13 +230,18 @@ function TreeBranch({
               key={childRow.path}
               row={childRow}
               depth={depth + 1}
+              visibleIndexRef={visibleIndexRef}
               expandedPaths={expandedPaths}
               rowsByPath={rowsByPath}
               marksByPath={marksByPath}
               query={query}
               activePath={activePath}
+              hoveredPath={hoveredPath}
+              registerRowRef={registerRowRef}
               onToggle={onToggle}
               onOpen={onOpen}
+              onHover={onHover}
+              onQuickDelete={onQuickDelete}
               onContextMenu={onContextMenu}
             />
           ))}
@@ -333,6 +387,8 @@ export function TreePanel() {
   const [contextMenu, setContextMenu] = useState<TreeContextMenuState | null>(null)
   const [createDialog, setCreateDialog] = useState<CreateDialogState | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null)
+  const [hoveredPath, setHoveredPath] = useState<string | null>(null)
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const rootRows = rowsByPath['/'] ?? []
   const rootVisible = !query
@@ -355,6 +411,7 @@ export function TreePanel() {
       setContextMenu(null)
       setCreateDialog(null)
       setDeleteDialog(null)
+      setHoveredPath(null)
       return
     }
 
@@ -390,7 +447,31 @@ export function TreePanel() {
     }
   }, [contextMenu])
 
+  useEffect(() => {
+    if (!activePath) {
+      return
+    }
+
+    const activeRow = rowRefs.current[activePath]
+    if (!activeRow) {
+      return
+    }
+
+    if (typeof activeRow.scrollIntoView !== 'function') {
+      return
+    }
+
+    activeRow.scrollIntoView({
+      block: 'center',
+      inline: 'nearest',
+    })
+  }, [activePath, expandedPaths, rowsByPath])
+
   const markOptions: NodeMarkColor[] = ['red', 'orange', 'yellow', 'green']
+
+  function registerRowRef(path: string, element: HTMLDivElement | null) {
+    rowRefs.current[path] = element
+  }
 
   async function handleCreateSubmit(childName: string, initialData: string) {
     if (!createDialog) {
@@ -429,6 +510,12 @@ export function TreePanel() {
     }
   }
 
+  function handleQuickDelete(row: TreeNodeRow) {
+    setHoveredPath(null)
+    setContextMenu(null)
+    setDeleteDialog({ row })
+  }
+
   function handleTreeContextMenu(
     event: MouseEvent<HTMLDivElement>,
     row: TreeNodeRow,
@@ -440,6 +527,8 @@ export function TreePanel() {
       y: event.clientY,
     })
   }
+
+  const visibleIndexRef = { value: 0 }
 
   return (
     <aside className="panel tree-panel" aria-label={t('panel.nodes')}>
@@ -477,6 +566,7 @@ export function TreePanel() {
             <span role="columnheader">{t('tree.columnNode')}</span>
             <span role="columnheader">{t('tree.columnSize')}</span>
             <span role="columnheader">{t('tree.columnUpdated')}</span>
+            <span aria-hidden="true" className="tree-grid__action-header" />
           </div>
 
           {loadingPaths.includes('/') ? (
@@ -495,13 +585,18 @@ export function TreePanel() {
                     key={row.path}
                     row={row}
                     depth={0}
+                    visibleIndexRef={visibleIndexRef}
                     expandedPaths={expandedPaths}
                     rowsByPath={rowsByPath}
                     marksByPath={marksByPath}
                     query={query}
                     activePath={activePath}
+                    hoveredPath={hoveredPath}
+                    registerRowRef={registerRowRef}
                     onToggle={toggleNode}
                     onOpen={openNode}
+                    onHover={setHoveredPath}
+                    onQuickDelete={handleQuickDelete}
                     onContextMenu={handleTreeContextMenu}
                   />
                 ))

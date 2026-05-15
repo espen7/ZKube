@@ -758,11 +758,52 @@ describe('Tree panel', () => {
 
     expect(servicesRow).toBeDefined()
     expect(brokenRow).toBeDefined()
-    expect(within(servicesRow as HTMLElement).getByText('2 KB')).toBeInTheDocument()
-    expect(
-      within(servicesRow as HTMLElement).getByText(/ago$/i),
-    ).toBeInTheDocument()
+    expect(within(servicesRow as HTMLElement).getByText('2KB')).toBeInTheDocument()
+    expect(within(servicesRow as HTMLElement).getByText('2m')).toBeInTheDocument()
     expect(within(brokenRow as HTMLElement).getAllByText('--')).toHaveLength(2)
+  })
+
+  it('renders zebra stripe metadata rows and shows quick delete only for hovered leaf nodes', async () => {
+    loadChildrenMock.mockResolvedValueOnce([
+      createRow('/branch', {
+        hasChildren: true,
+        dataLength: 2_048,
+        mtime: Date.now() - 90_000,
+      }),
+      createRow('/leaf', {
+        hasChildren: false,
+        dataLength: 128,
+        mtime: Date.now() - 22 * 86_400_000,
+      }),
+    ])
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
+    })
+
+    const branchRow = (await screen.findByText('branch')).closest('.tree-row')
+    const leafRow = (await screen.findByText('leaf')).closest('.tree-row')
+
+    expect(branchRow).toBeTruthy()
+    expect(leafRow).toBeTruthy()
+    expect(branchRow).toHaveClass('tree-row--odd')
+    expect(leafRow).toHaveClass('tree-row--even')
+    expect(within(leafRow as HTMLElement).getByText('22d')).toBeInTheDocument()
+    expect(within(leafRow as HTMLElement).getByText('128B')).toBeInTheDocument()
+
+    expect(
+      within(branchRow as HTMLElement).queryByRole('button', { name: 'Delete node' }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.mouseEnter(leafRow as HTMLElement)
+
+    expect(
+      within(leafRow as HTMLElement).getByRole('button', { name: 'Delete node' }),
+    ).toBeInTheDocument()
   })
 
   it('creates child nodes from the tree row context menu', async () => {

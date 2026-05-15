@@ -11,7 +11,25 @@ export function formatBytes(value: number | null | undefined): string {
     return `${Math.round(value / 1024)} KB`
   }
 
-  return `${Math.round((value / (1024 * 1024)) * 10) / 10} MB`
+  const megabytes = Math.round((value / (1024 * 1024)) * 10) / 10
+  return `${Number.isInteger(megabytes) ? megabytes.toFixed(0) : megabytes} MB`
+}
+
+export function formatBytesCompact(value: number | null | undefined): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return '--'
+  }
+
+  if (value < 1024) {
+    return `${value}B`
+  }
+
+  if (value < 1024 * 1024) {
+    return `${Math.round(value / 1024)}KB`
+  }
+
+  const megabytes = Math.round((value / (1024 * 1024)) * 10) / 10
+  return `${Number.isInteger(megabytes) ? megabytes.toFixed(0) : megabytes}MB`
 }
 
 export function formatRelativeTime(
@@ -44,4 +62,34 @@ export function formatRelativeTime(
   }
 
   return rtf.format(Math.round(diffMs / 86_400_000), 'day')
+}
+
+export function formatRelativeTimeCompact(
+  value: number | null | undefined,
+  now = Date.now(),
+): string {
+  if (
+    typeof value !== 'number' ||
+    value <= 0 ||
+    !Number.isFinite(value) ||
+    !Number.isFinite(now)
+  ) {
+    return '--'
+  }
+
+  const ageMs = Math.max(now - value, 0)
+
+  if (ageMs < 60_000) {
+    return '<1m'
+  }
+
+  if (ageMs < 3_600_000) {
+    return `${Math.max(1, Math.round(ageMs / 60_000))}m`
+  }
+
+  if (ageMs < 86_400_000) {
+    return `${Math.max(1, Math.round(ageMs / 3_600_000))}h`
+  }
+
+  return `${Math.max(1, Math.round(ageMs / 86_400_000))}d`
 }

@@ -252,7 +252,7 @@ button {
 .tree-grid__header,
 .tree-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 88px 112px;
+  grid-template-columns: minmax(0, 1fr) 64px 64px 28px;
   gap: 12px;
   align-items: center;
 }
@@ -277,10 +277,14 @@ button {
   justify-self: end;
 }
 
+.tree-grid__action-header {
+  display: block;
+}
+
 .tree-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
   min-height: 0;
   margin: 0;
   padding: 0;
@@ -288,31 +292,47 @@ button {
 }
 
 .tree-list--nested {
-  gap: 4px;
-  margin-top: 4px;
+  gap: 0;
+  margin-top: 0;
 }
 
 .tree-row-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 0;
 }
 
 .tree-row {
   min-height: 34px;
   padding: 4px 10px;
-  border: 1px solid transparent;
-  border-radius: 12px;
+  border-top: 1px solid transparent;
+  border-right: 0;
+  border-bottom: 1px solid transparent;
+  border-left: 0;
+  border-radius: 0;
   cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease;
+}
+
+.tree-row--odd {
+  background: var(--tree-row-odd);
+}
+
+.tree-row--even {
+  background: var(--tree-row-even);
 }
 
 .tree-row:hover {
-  border-color: var(--border);
-  background: var(--bg-subtle);
+  border-top-color: var(--border);
+  border-bottom-color: var(--border);
+  background: var(--tree-row-hover);
 }
 
 .tree-row--selected {
-  border-color: rgba(36, 200, 165, 0.28);
+  border-top-color: rgba(36, 200, 165, 0.28);
+  border-bottom-color: rgba(36, 200, 165, 0.28);
   background: var(--bg-accent-soft);
 }
 
@@ -321,6 +341,7 @@ button {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  transition: transform 140ms ease;
 }
 
 .tree-row__toggle,
@@ -391,6 +412,58 @@ button {
 .tree-row__updated {
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  transition:
+    transform 140ms ease,
+    color 140ms ease;
+}
+
+.tree-row__action {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 20px;
+}
+
+.tree-row:hover .tree-row__node,
+.tree-row:hover .tree-row__size,
+.tree-row:hover .tree-row__updated {
+  transform: translateX(4px);
+}
+
+.tree-row__delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 999px;
+  border-color: rgba(226, 91, 91, 0.2);
+  color: #c85454;
+  background: rgba(226, 91, 91, 0.08);
+  opacity: 0;
+  transform: translateX(4px);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease,
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.tree-row:hover .tree-row__delete,
+.tree-row__delete:focus-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.tree-row__delete:hover {
+  border-color: rgba(226, 91, 91, 0.32);
+  background: rgba(226, 91, 91, 0.14);
+}
+
+.tree-row__delete svg {
+  width: 14px;
+  height: 14px;
 }
 
 .node-editor__alert {

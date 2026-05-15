@@ -19,7 +19,7 @@ function getMarkOrder(
 export function NodeWorkbench() {
   const { t } = useI18n()
   const { activeConnectionId } = useConnectionsStore()
-  const { marksByPath } = useTreeStore()
+  const { marksByPath, revealPath } = useTreeStore()
   const {
     activePath,
     tabs,
@@ -79,6 +79,11 @@ export function NodeWorkbench() {
     await refreshTab(activeTab.path)
   }
 
+  function handleMarkedNodeClick(path: string) {
+    openNode(path)
+    void revealPath(path)
+  }
+
   return (
     <section aria-label="Node workbench" className="workspace-shell">
       <div className="workspace-stack">
@@ -116,7 +121,7 @@ export function NodeWorkbench() {
                       .filter(Boolean)
                       .join(' ')}
                     aria-pressed={activeTab?.path === path}
-                    onClick={() => openNode(path)}
+                    onClick={() => handleMarkedNodeClick(path)}
                     title={path}
                   >
                     <span

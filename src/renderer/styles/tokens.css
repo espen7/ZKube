@@ -44,6 +44,9 @@
   --border: rgba(143, 168, 192, 0.18);
   --border-strong: rgba(143, 168, 192, 0.32);
   --shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+  --tree-row-odd: #0e1724;
+  --tree-row-even: #152131;
+  --tree-row-hover: #1d4a43;
 }
 
 :root[data-theme='light'] {
@@ -67,4 +70,7 @@
   --border: rgba(116, 138, 161, 0.22);
   --border-strong: rgba(116, 138, 161, 0.34);
   --shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+  --tree-row-odd: #f9fafc;
+  --tree-row-even: #f2f4f7;
+  --tree-row-hover: #e6f1ee;
 }
