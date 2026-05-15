@@ -6,6 +6,7 @@ import { ConnectionSidebar } from '../connections/ConnectionSidebar'
 import { NavigationToolRail } from './NavigationToolRail'
 import { StatusBar } from '../runtime/StatusBar'
 import { useRuntimeEvents } from '../runtime/useRuntimeEvents'
+import { useZooKeeperOverview } from '../runtime/useZooKeeperOverview'
 import { TreePanel } from '../tree/TreePanel'
 import { NodeWorkbench } from '../workbench/NodeWorkbench'
 import { useConnectionsStore } from '../connections/useConnectionsStore'
@@ -48,6 +49,7 @@ function getSafeNavigationWidth(width: number, viewportWidth: number) {
 export function AppShell() {
   const { t } = useI18n()
   const { connectionState, watcherCount, message } = useRuntimeEvents()
+  const overview = useZooKeeperOverview(connectionState)
   const {
     activeConnectionId,
     items,
@@ -146,6 +148,7 @@ export function AppShell() {
           connectionState={connectionState}
           activeConnectionName={activeConnection?.name ?? null}
           activeConnectionHosts={activeConnection?.hosts ?? null}
+          overview={overview}
           watcherCount={watcherCount}
           message={message}
         />

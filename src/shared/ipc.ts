@@ -8,6 +8,7 @@ import type {
   NodeSnapshot,
   RuntimeEvent,
   TreeNodeRow,
+  ZooKeeperOverview,
 } from './models/node'
 import type {
   Preferences,
@@ -35,6 +36,7 @@ export const channels = {
   nodeMarksSet: 'nodeMarks:set',
   nodeMarksClear: 'nodeMarks:clear',
   zookeeperDisconnect: 'zookeeper:disconnect',
+  zookeeperGetOverview: 'zookeeper:getOverview',
   zookeeperLoadChildren: 'zookeeper:loadChildren',
   zookeeperOpen: 'zookeeper:open',
   zookeeperSearch: 'zookeeper:search',
@@ -74,6 +76,7 @@ export type InvokeRequestMap = {
     recursive?: boolean
   }
   [channels.zookeeperDisconnect]: undefined
+  [channels.zookeeperGetOverview]: undefined
   [channels.zookeeperLoadChildren]: { path: string }
   [channels.zookeeperOpen]: { path: string }
   [channels.zookeeperSearch]: { query: string }
@@ -109,6 +112,7 @@ export type InvokeResponseMap = {
   [channels.nodeMarksSet]: void
   [channels.nodeMarksClear]: void
   [channels.zookeeperDisconnect]: void
+  [channels.zookeeperGetOverview]: ZooKeeperOverview
   [channels.zookeeperLoadChildren]: TreeNodeRow[]
   [channels.zookeeperOpen]: NodeSnapshot
   [channels.zookeeperSearch]: string[]
@@ -181,6 +185,9 @@ export interface DesktopApi {
   }
   zookeeper: {
     disconnect(): Promise<void>
+    getOverview?(): Promise<
+      InvokeResponseMap[typeof channels.zookeeperGetOverview]
+    >
     loadChildren(
       path: string,
     ): Promise<InvokeResponseMap[typeof channels.zookeeperLoadChildren]>
@@ -248,6 +255,7 @@ export function createDesktopApi(transport: Transport): DesktopApi {
     },
     zookeeper: {
       disconnect: () => transport.invoke(channels.zookeeperDisconnect, undefined),
+      getOverview: () => transport.invoke(channels.zookeeperGetOverview, undefined),
       loadChildren: (path) =>
         transport.invoke(channels.zookeeperLoadChildren, { path }),
       open: (path) => transport.invoke(channels.zookeeperOpen, { path }),

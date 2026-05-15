@@ -1,3 +1,4 @@
+import net from 'node:net'
 import nodeZkModule from 'node-zookeeper-client'
 
 import type { ZooKeeperClient } from '../../domain/zookeeper/client'
@@ -6,6 +7,9 @@ import type {
   AclEntry,
   NodeSnapshot,
   TreeNodeRow,
+  ZooKeeperOverview,
+  ZooKeeperOverviewSourceCommand,
+  ZooKeeperServerState,
 } from '../../shared/models/node'
 
 type ConnectionConfig = {
@@ -89,6 +93,12 @@ type NodeZkModule = {
 }
 
 type NodeZkFactory = () => NodeZkModule
+type MntrRequester = (
+  host: string,
+  port: number,
+  timeoutMs: number,
+  command: 'mntr' | 'srvr' | 'stat',
+) => Promise<string>
 
 const PERMISSIONS = [
   ['read', 'READ'],
@@ -139,6 +149,7 @@ export class NodeZkClient implements ZooKeeperClient {
   constructor(
     private readonly connection: ConnectionConfig,
     private readonly factory: NodeZkFactory = loadNodeZkModule,
+    private readonly requestMntr: MntrRequester = defaultMntrRequester,
   ) {}
 
   async connect(): Promise<void> {
@@ -231,6 +242,54 @@ export class NodeZkClient implements ZooKeeperClient {
 
     return () => {
       this.connectionLossSubscribers.delete(cb)
+    }
+  }
+
+  async getOverview(): Promise<ZooKeeperOverview> {
+    const timeoutMs = 3_000
+
+    for (const candidate of parseHostCandidates(this.connection.hosts)) {
+      for (const command of ['mntr', 'srvr', 'stat'] as const) {
+        try {
+          const response = await this.requestMntr(
+            candidate.host,
+            candidate.port,
+            timeoutMs,
+            command,
+          )
+
+          if (command === 'mntr') {
+            return parseMntrOverview(
+              response,
+              `${candidate.host}:${candidate.port}`,
+            )
+          }
+
+          return parseServerOverview(
+            response,
+            `${candidate.host}:${candidate.port}`,
+            command,
+          )
+        } catch {
+          continue
+        }
+      }
+    }
+
+    return {
+      sourceHost: null,
+      sourceCommand: null,
+      serverState: 'unknown',
+      avgLatency: null,
+      packetsReceived: null,
+      packetsSent: null,
+      numAliveConnections: null,
+      znodeCount: null,
+      watchCount: null,
+      approximateDataSize: null,
+      collectedAt: null,
+      available: false,
+      reason: 'mntr unavailable for all configured hosts',
     }
   }
 
@@ -588,4 +647,207 @@ function normalizeStatTimestamp(
 
   const decoded = Number(buffer.readBigInt64BE(0))
   return Number.isFinite(decoded) ? decoded : null
+}
+
+function parseHostCandidates(hosts: string): Array<{ host: string; port: number }> {
+  return hosts
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const portSeparator = entry.lastIndexOf(':')
+      if (portSeparator <= 0) {
+        return {
+          host: entry,
+          port: 2181,
+        }
+      }
+
+      const host = entry.slice(0, portSeparator)
+      const rawPort = Number(entry.slice(portSeparator + 1))
+
+      return {
+        host,
+        port: Number.isFinite(rawPort) && rawPort > 0 ? rawPort : 2181,
+      }
+    })
+}
+
+function parseMntrOverview(
+  response: string,
+  sourceHost: string,
+): ZooKeeperOverview {
+  const pairs = new Map<string, string>()
+
+  for (const line of response.split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (!trimmed) {
+      continue
+    }
+
+    const [key, ...rest] = trimmed.split('\t')
+    if (!key || rest.length === 0) {
+      continue
+    }
+
+    pairs.set(key, rest.join('\t').trim())
+  }
+
+  if (!pairs.has('zk_server_state')) {
+    throw new Error('Invalid mntr response')
+  }
+
+  return {
+    sourceHost,
+    sourceCommand: 'mntr',
+    serverState: normalizeServerState(pairs.get('zk_server_state')),
+    avgLatency: parseMntrNumber(pairs.get('zk_avg_latency')),
+    packetsReceived: parseMntrNumber(pairs.get('zk_packets_received')),
+    packetsSent: parseMntrNumber(pairs.get('zk_packets_sent')),
+    numAliveConnections: parseMntrNumber(pairs.get('zk_num_alive_connections')),
+    znodeCount: parseMntrNumber(pairs.get('zk_znode_count')),
+    watchCount: parseMntrNumber(pairs.get('zk_watch_count')),
+    approximateDataSize: parseMntrNumber(
+      pairs.get('zk_approximate_data_size'),
+    ),
+    collectedAt: Date.now(),
+    available: true,
+    reason: null,
+  }
+}
+
+function parseServerOverview(
+  response: string,
+  sourceHost: string,
+  sourceCommand: Extract<ZooKeeperOverviewSourceCommand, 'srvr' | 'stat'>,
+): ZooKeeperOverview {
+  const lines = response
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const fieldMap = new Map<string, string>()
+  for (const line of lines) {
+    const separatorIndex = line.indexOf(':')
+    if (separatorIndex <= 0) {
+      continue
+    }
+
+    fieldMap.set(
+      line.slice(0, separatorIndex).trim().toLowerCase(),
+      line.slice(separatorIndex + 1).trim(),
+    )
+  }
+
+  if (!fieldMap.has('mode') && !fieldMap.has('latency min/avg/max')) {
+    throw new Error(`Invalid ${sourceCommand} response`)
+  }
+
+  return {
+    sourceHost,
+    sourceCommand,
+    serverState: normalizeServerState(fieldMap.get('mode')),
+    avgLatency: parseAvgLatency(fieldMap.get('latency min/avg/max')),
+    packetsReceived: parseMntrNumber(fieldMap.get('received')),
+    packetsSent: parseMntrNumber(fieldMap.get('sent')),
+    numAliveConnections: parseMntrNumber(fieldMap.get('connections')),
+    znodeCount: parseMntrNumber(fieldMap.get('node count')),
+    watchCount: null,
+    approximateDataSize: null,
+    collectedAt: Date.now(),
+    available: true,
+    reason: null,
+  }
+}
+
+function normalizeServerState(value: string | undefined): ZooKeeperServerState {
+  switch ((value ?? '').trim().toLowerCase()) {
+    case 'leader':
+    case 'follower':
+    case 'standalone':
+    case 'observer':
+      return value!.trim().toLowerCase() as ZooKeeperServerState
+    default:
+      return 'unknown'
+  }
+}
+
+function parseMntrNumber(value: string | undefined): number | null {
+  if (!value) {
+    return null
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+async function defaultMntrRequester(
+  host: string,
+  port: number,
+  timeoutMs: number,
+  command: 'mntr' | 'srvr' | 'stat',
+): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const socket = net.createConnection({ host, port })
+    const chunks: Buffer[] = []
+    let settled = false
+
+    const cleanup = () => {
+      socket.removeAllListeners()
+      if (!socket.destroyed) {
+        socket.destroy()
+      }
+    }
+
+    const settle = (fn: () => void) => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      cleanup()
+      fn()
+    }
+
+    socket.setTimeout(timeoutMs)
+    socket.on('connect', () => {
+      socket.end(`${command}\n`)
+    })
+    socket.on('data', (chunk) => {
+      chunks.push(Buffer.from(chunk))
+    })
+    socket.on('end', () => {
+      settle(() => {
+        resolve(Buffer.concat(chunks).toString('utf8'))
+      })
+    })
+    socket.on('close', () => {
+      if (settled) {
+        return
+      }
+
+      settle(() => {
+        resolve(Buffer.concat(chunks).toString('utf8'))
+      })
+    })
+    socket.on('timeout', () => {
+      settle(() => {
+        reject(new Error(`mntr timed out for ${host}:${port}`))
+      })
+    })
+    socket.on('error', (error) => {
+      settle(() => {
+        reject(error)
+      })
+    })
+  })
+}
+
+function parseAvgLatency(value: string | undefined): number | null {
+  if (!value) {
+    return null
+  }
+
+  const parts = value.split('/').map((part) => part.trim())
+  return parseMntrNumber(parts[1])
 }

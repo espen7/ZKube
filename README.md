@@ -20,7 +20,7 @@
 
 ## Screenshot
 
-![ZKube screenshot](docs/image.png)
+![ZKube screenshot](docs/screenshot.png)
 
 ## Overview
 

@@ -32,6 +32,7 @@ import type { StoredConnection } from '../../src/shared/models/connection'
 import type { NodeMarkColor } from '../../src/shared/models/node'
 import type { NodeSnapshot, RuntimeEvent } from '../../src/shared/models/node'
 import type { TreeNodeRow } from '../../src/shared/models/node'
+import type { ZooKeeperOverview } from '../../src/shared/models/node'
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -78,6 +79,9 @@ describe('node workbench', () => {
   let loadChildrenMock: ReturnType<
     typeof vi.fn<(path: string) => Promise<TreeNodeRow[]>>
   >
+  let getOverviewMock: ReturnType<
+    typeof vi.fn<() => Promise<ZooKeeperOverview>>
+  >
   let saveAclMock: ReturnType<
     typeof vi.fn<
       (path: string, acl: NodeSnapshot['acl']) => Promise<void>
@@ -109,6 +113,21 @@ describe('node workbench', () => {
     loadChildrenMock = vi
       .fn<(path: string) => Promise<TreeNodeRow[]>>()
       .mockResolvedValue([])
+    getOverviewMock = vi.fn<() => Promise<ZooKeeperOverview>>().mockResolvedValue({
+      sourceHost: '192.168.171.15:2181',
+      sourceCommand: 'mntr',
+      serverState: 'leader',
+      avgLatency: 51,
+      packetsReceived: 290,
+      packetsSent: 57,
+      numAliveConnections: 14,
+      znodeCount: 290,
+      watchCount: 57,
+      approximateDataSize: 14 * 1024 * 1024,
+      collectedAt: 1_715_000_000_000,
+      available: true,
+      reason: null,
+    })
     saveAclMock = vi
       .fn<(path: string, acl: NodeSnapshot['acl']) => Promise<void>>()
       .mockResolvedValue(undefined)
@@ -143,6 +162,7 @@ describe('node workbench', () => {
       zookeeper: {
         disconnect: vi.fn(),
         loadChildren: loadChildrenMock,
+        getOverview: getOverviewMock,
         open: openMock,
         search: vi.fn().mockResolvedValue([]),
         create: vi.fn(),
@@ -568,6 +588,34 @@ describe('node workbench', () => {
     })
 
     expect(openMock).toHaveBeenCalledWith('/config/service/child')
+  })
+
+  it('removes the ZooKeeper overview strip from the workbench header', async () => {
+    connectionsListMock.mockResolvedValueOnce([
+      {
+        id: 'readonly-1',
+        name: 'Readonly',
+        hosts: '192.168.171.15:2181',
+        updatedAt: '2026-05-14T10:00:00.000Z',
+      },
+    ])
+
+    await act(async () => {
+      render(<App />)
+    })
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /connect connection readonly/i }),
+    )
+
+    await act(async () => {
+      emitRuntimeEvent({
+        type: 'connectionStateChanged',
+        state: 'connected',
+      })
+    })
+
+    expect(screen.queryByLabelText('ZooKeeper overview strip')).not.toBeInTheDocument()
   })
 
   it('reveals the marked node inside the tree and scrolls it into view when clicked', async () => {

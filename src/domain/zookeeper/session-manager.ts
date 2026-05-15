@@ -3,6 +3,7 @@ import type {
   NodeSnapshot,
   RuntimeEvent,
   TreeNodeRow,
+  ZooKeeperOverview,
 } from '../../shared/models/node'
 import type { ZooKeeperClient } from './client'
 
@@ -58,6 +59,10 @@ export class SessionManager {
 
   async open(path: string): Promise<NodeSnapshot> {
     return this.requireClient().getNode(path)
+  }
+
+  async getOverview(): Promise<ZooKeeperOverview> {
+    return this.requireClient().getOverview()
   }
 
   async search(query: string): Promise<string[]> {

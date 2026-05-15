@@ -4,6 +4,7 @@ import {
   NodeZkClient,
   mapZooKeeperError,
 } from '../../src/infrastructure/zookeeper/node-zk-client'
+import type { ZooKeeperOverview } from '../../src/shared/models/node'
 
 type FakeNodeClient = {
   once(event: string, cb: () => void): void
@@ -433,5 +434,123 @@ describe('NodeZkClient', () => {
       code: 'UNKNOWN_FAILURE',
       message: 'Read-only ZooKeeper sessions are not supported',
     })
+  })
+
+  it('queries mntr across configured hosts and returns the first valid overview payload', async () => {
+    const requestedHosts: string[] = []
+    const client = new NodeZkClient(
+      {
+        hosts: 'zk-1:2181,zk-2:2182',
+      },
+      () => makeFactory(),
+      async (host, port) => {
+        requestedHosts.push(`${host}:${port}`)
+        if (host === 'zk-1') {
+          throw new Error('connection refused')
+        }
+
+        return [
+          'zk_version\t3.9.4',
+          'zk_server_state\tleader',
+          'zk_avg_latency\t12',
+          'zk_packets_received\t34',
+          'zk_packets_sent\t55',
+          'zk_num_alive_connections\t8',
+          'zk_znode_count\t377',
+          'zk_watch_count\t23',
+          'zk_approximate_data_size\t4096',
+        ].join('\n')
+      },
+    )
+
+    await expect(client.getOverview()).resolves.toEqual({
+      sourceHost: 'zk-2:2182',
+      sourceCommand: 'mntr',
+      serverState: 'leader',
+      avgLatency: 12,
+      packetsReceived: 34,
+      packetsSent: 55,
+      numAliveConnections: 8,
+      znodeCount: 377,
+      watchCount: 23,
+      approximateDataSize: 4096,
+      collectedAt: expect.any(Number),
+      available: true,
+      reason: null,
+    } satisfies ZooKeeperOverview)
+    expect(requestedHosts).toEqual([
+      'zk-1:2181',
+      'zk-1:2181',
+      'zk-1:2181',
+      'zk-2:2182',
+    ])
+  })
+
+  it('returns an unavailable overview when mntr is disabled on every configured host', async () => {
+    const client = new NodeZkClient(
+      {
+        hosts: 'zk-1:2181,zk-2:2181',
+      },
+      () => makeFactory(),
+      async () => {
+        throw new Error('mntr is not in the whitelist')
+      },
+    )
+
+    await expect(client.getOverview()).resolves.toEqual({
+      sourceHost: null,
+      sourceCommand: null,
+      serverState: 'unknown',
+      avgLatency: null,
+      packetsReceived: null,
+      packetsSent: null,
+      numAliveConnections: null,
+      znodeCount: null,
+      watchCount: null,
+      approximateDataSize: null,
+      collectedAt: null,
+      available: false,
+      reason: 'mntr unavailable for all configured hosts',
+    } satisfies ZooKeeperOverview)
+  })
+
+  it('falls back to srvr when mntr is unavailable and returns a limited overview', async () => {
+    const client = new NodeZkClient(
+      {
+        hosts: 'zk-1:2181',
+      },
+      () => makeFactory(),
+      async (_host, _port, _timeoutMs, command) => {
+        if (command === 'mntr') {
+          return 'mntr is not executed because it is not in the whitelist.'
+        }
+
+        return [
+          'Zookeeper version: 3.9.4',
+          'Latency min/avg/max: 2/18/44',
+          'Received: 91',
+          'Sent: 77',
+          'Connections: 12',
+          'Mode: follower',
+          'Node count: 433',
+        ].join('\n')
+      },
+    )
+
+    await expect(client.getOverview()).resolves.toEqual({
+      sourceHost: 'zk-1:2181',
+      sourceCommand: 'srvr',
+      serverState: 'follower',
+      avgLatency: 18,
+      packetsReceived: 91,
+      packetsSent: 77,
+      numAliveConnections: 12,
+      znodeCount: 433,
+      watchCount: null,
+      approximateDataSize: null,
+      collectedAt: expect.any(Number),
+      available: true,
+      reason: null,
+    } satisfies ZooKeeperOverview)
   })
 })

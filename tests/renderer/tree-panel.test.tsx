@@ -275,6 +275,9 @@ describe('Tree panel', () => {
     expect(rootRow).toHaveClass('tree-row--root')
     expect(within(rootRow as HTMLElement).getByText('/')).toBeInTheDocument()
     expect(
+      (rootRow as HTMLElement).querySelector('.tree-row__icon svg'),
+    ).toHaveAttribute('data-icon', 'lucide-hard-drive')
+    expect(
       within(rootRow as HTMLElement).getByRole('button', { name: 'Collapse' }),
     ).toBeInTheDocument()
     expect(screen.getByText('configs')).toBeInTheDocument()
@@ -792,6 +795,12 @@ describe('Tree panel', () => {
 
     expect(servicesRow).toBeDefined()
     expect(brokenRow).toBeDefined()
+    expect(
+      (servicesRow as HTMLElement).querySelector('.tree-row__icon svg'),
+    ).toHaveAttribute('data-icon', 'lucide-folder')
+    expect(
+      (brokenRow as HTMLElement).querySelector('.tree-row__icon svg'),
+    ).toHaveAttribute('data-icon', 'lucide-file')
     expect(within(servicesRow as HTMLElement).getByText('2KB')).toBeInTheDocument()
     expect(within(servicesRow as HTMLElement).getByText('2m')).toBeInTheDocument()
     expect(within(brokenRow as HTMLElement).getAllByText('--')).toHaveLength(2)

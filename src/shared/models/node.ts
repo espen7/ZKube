@@ -13,6 +13,35 @@ export type TreeNodeRow = {
   mtime: number | null
 }
 
+export type ZooKeeperServerState =
+  | 'leader'
+  | 'follower'
+  | 'standalone'
+  | 'observer'
+  | 'unknown'
+
+export type ZooKeeperOverviewSourceCommand =
+  | 'mntr'
+  | 'srvr'
+  | 'stat'
+  | null
+
+export type ZooKeeperOverview = {
+  sourceHost: string | null
+  sourceCommand: ZooKeeperOverviewSourceCommand
+  serverState: ZooKeeperServerState
+  avgLatency: number | null
+  packetsReceived: number | null
+  packetsSent: number | null
+  numAliveConnections: number | null
+  znodeCount: number | null
+  watchCount: number | null
+  approximateDataSize: number | null
+  collectedAt: number | null
+  available: boolean
+  reason?: string | null
+}
+
 export type NodeMarkColor = 'red' | 'orange' | 'yellow' | 'green'
 
 export type NodeMarkRecord = {

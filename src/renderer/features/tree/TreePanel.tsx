@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 
+import { LucideIcon } from '../../components/LucideIcon'
 import type {
   NodeMarkColor,
   TreeNodeRow,
@@ -63,68 +64,41 @@ function shouldRenderPath(
 
 function FolderIcon() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20">
-      <path
-        d="M2.5 6.5a1.5 1.5 0 0 1 1.5-1.5h3.1l1.3 1.5h7.6a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1-1.5 1.5H4a1.5 1.5 0 0 1-1.5-1.5v-8Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-      />
-    </svg>
+    <LucideIcon name="folder">
+      <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z" />
+    </LucideIcon>
   )
 }
 
 function RootIcon() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20">
-      <path
-        d="M3.5 5.5A1.5 1.5 0 0 1 5 4h10a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 15 16H5a1.5 1.5 0 0 1-1.5-1.5v-9Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-      />
-      <path
-        d="M6.5 8.5h7m-7 3h5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-      />
-    </svg>
+    <LucideIcon name="hard-drive">
+      <line x1="22" x2="2" y1="12" y2="12" />
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z" />
+      <line x1="6" x2="6.01" y1="16" y2="16" />
+      <line x1="10" x2="10.01" y1="16" y2="16" />
+    </LucideIcon>
   )
 }
 
 function FileIcon() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20">
-      <path
-        d="M5 3.5h7l3 3v10a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 4 16.5V5A1.5 1.5 0 0 1 5.5 3.5Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-      />
-      <path
-        d="M12 3.5V7h3.5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-      />
-    </svg>
+    <LucideIcon name="file">
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    </LucideIcon>
   )
 }
 
 function DeleteIcon() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20">
-      <path
-        d="M6.5 6.5v8m3-8v8m3-8v8M4.5 5h11m-8-2h5m-7 2 .7 10.2A1.5 1.5 0 0 0 7.7 16.6h4.6a1.5 1.5 0 0 0 1.5-1.4L14.5 5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <LucideIcon name="trash-2">
+      <path d="M3 6h18" />
+      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </LucideIcon>
   )
 }
 

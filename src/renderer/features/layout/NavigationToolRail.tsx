@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
+import { LucideIcon } from '../../components/LucideIcon'
 import { useConnectionsStore } from '../connections/useConnectionsStore'
 import { useI18n } from '../../use-i18n'
 
@@ -33,52 +34,52 @@ function RailButton({
 
 function AddIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
-      <rect x="4" y="4" width="16" height="16" rx="3" />
-    </svg>
+    <LucideIcon name="square-plus">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M12 8v8" />
+      <path d="M8 12h8" />
+    </LucideIcon>
   )
 }
 
 function SettingsIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M12 8.4a3.6 3.6 0 1 0 0 7.2a3.6 3.6 0 0 0 0-7.2Z" />
-      <path d="M4.8 13.5l-1.3-1.5l1.3-1.5l1.9-.2a5.9 5.9 0 0 1 .7-1.6L6.3 7l.9-1.8l1.9.3c.5-.4 1-.6 1.6-.7L12 3.1l1.3 1.7c.6.1 1.1.3 1.6.7l1.9-.3l.9 1.8l-1.1 1.7c.3.5.5 1 .7 1.6l1.9.2l1.3 1.5l-1.3 1.5l-1.9.2a5.9 5.9 0 0 1-.7 1.6l1.1 1.7l-.9 1.8l-1.9-.3c-.5.4-1 .6-1.6.7L12 20.9l-1.3-1.7a5.5 5.5 0 0 1-1.6-.7l-1.9.3l-.9-1.8l1.1-1.7a5.9 5.9 0 0 1-.7-1.6l-1.9-.2Z" />
-    </svg>
+    <LucideIcon name="settings-2">
+      <path d="M20 7h-9" />
+      <path d="M14 17H5" />
+      <circle cx="17" cy="17" r="3" />
+      <circle cx="7" cy="7" r="3" />
+    </LucideIcon>
   )
 }
 
 function ImportIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M12 4v10" />
-      <path d="m8.5 10.5 3.5 3.5 3.5-3.5" />
-      <path d="M5 18.5h14" />
-      <path d="M6.5 20h11" />
-    </svg>
+    <LucideIcon name="import">
+      <path d="M12 3v12" />
+      <path d="m8 11 4 4 4-4" />
+      <path d="M20 21H4" />
+    </LucideIcon>
   )
 }
 
 function ExportIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M12 20V10" />
-      <path d="m8.5 13.5 3.5-3.5 3.5 3.5" />
-      <path d="M5 5.5h14" />
-      <path d="M6.5 4h11" />
-    </svg>
+    <LucideIcon name="export">
+      <path d="M12 21V9" />
+      <path d="m8 13 4-4 4 4" />
+      <path d="M20 3H4" />
+    </LucideIcon>
   )
 }
 
 function AboutIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <circle cx="12" cy="12" r="8" />
-      <path d="M12 10v5" />
-      <path d="M12 7.5h.01" />
-    </svg>
+    <LucideIcon name="info">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4" />
+      <path d="M12 8h.01" />
+    </LucideIcon>
   )
 }
 

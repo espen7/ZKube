@@ -20,7 +20,7 @@
 
 ## 项目截图
 
-![ZKube 项目截图](docs/image.png)
+![ZKube 项目截图](docs/screenshot.png)
 
 ## 项目简介
 

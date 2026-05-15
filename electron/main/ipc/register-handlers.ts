@@ -213,6 +213,9 @@ export function registerHandlers(userDataPath: string): void {
     await sessionManager.disconnect()
     activeConnection = null
   })
+  ipcMain.handle(channels.zookeeperGetOverview, () =>
+    sessionManager.getOverview(),
+  )
   ipcMain.handle(channels.zookeeperLoadChildren, (_event, payload) =>
     sessionManager.loadChildren(payload.path),
   )
