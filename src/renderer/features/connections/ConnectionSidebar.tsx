@@ -11,6 +11,10 @@ type ContextMenuState = {
   y: number
 }
 
+type DeleteConfirmState = {
+  connection: StoredConnection
+}
+
 export function ConnectionSidebar() {
   const {
     items,
@@ -20,11 +24,13 @@ export function ConnectionSidebar() {
     openEditDialog,
     deleteConnection,
     feedback,
+    clearFeedback,
     activeConnectionId,
     connectionState,
   } = useConnectionsStore()
   const { t } = useI18n()
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
 
   useEffect(() => {
     void load()
@@ -54,6 +60,20 @@ export function ConnectionSidebar() {
     }
   }, [contextMenu])
 
+  useEffect(() => {
+    if (!feedback) {
+      return undefined
+    }
+
+    const timer = setTimeout(() => {
+      clearFeedback()
+    }, 5000)
+
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [feedback, clearFeedback])
+
   const transitionInFlight =
     connectionState === 'connecting' || connectionState === 'reconnecting'
 
@@ -65,6 +85,28 @@ export function ConnectionSidebar() {
     return activeConnectionId === connectionId && connectionState !== 'disconnected'
   }
 
+  function calculateContextMenuPosition(clientX: number, clientY: number) {
+    const menuWidth = 160
+    const menuHeight = 80
+    const padding = 8
+
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+
+    let x = clientX
+    let y = clientY
+
+    if (x + menuWidth + padding > viewportWidth) {
+      x = viewportWidth - menuWidth - padding
+    }
+
+    if (y + menuHeight + padding > viewportHeight) {
+      y = viewportHeight - menuHeight - padding
+    }
+
+    return { x: Math.max(padding, x), y: Math.max(padding, y) }
+  }
+
   function handleEdit(connection: StoredConnection) {
     if (isEditDisabled(connection.id)) {
       return
@@ -74,21 +116,22 @@ export function ConnectionSidebar() {
     openEditDialog(connection.id)
   }
 
-  async function handleDelete(connection: StoredConnection) {
+  function handleDelete(connection: StoredConnection) {
     if (isDeleteDisabled(connection.id)) {
       return
     }
 
     setContextMenu(null)
+    setDeleteConfirm({ connection })
+  }
 
-    const confirmed = window.confirm(
-      t('connection.deleteConfirm', { name: connection.name }),
-    )
-    if (!confirmed) {
+  async function handleConfirmDelete() {
+    if (!deleteConfirm) {
       return
     }
 
-    await deleteConnection(connection.id)
+    setDeleteConfirm(null)
+    await deleteConnection(deleteConfirm.connection.id)
   }
 
   return (
@@ -130,10 +173,11 @@ export function ConnectionSidebar() {
                     .join(' ')}
                   onContextMenu={(event) => {
                     event.preventDefault()
+                    const position = calculateContextMenuPosition(event.clientX, event.clientY)
                     setContextMenu({
                       connection: item,
-                      x: event.clientX,
-                      y: event.clientY,
+                      x: position.x,
+                      y: position.y,
                     })
                   }}
                 >
@@ -229,6 +273,32 @@ export function ConnectionSidebar() {
           )}
         </div>
       </div>
+
+      {deleteConfirm ? (
+        <div className="dialog-backdrop dialog-backdrop--overlay">
+          <div
+            aria-label={t('connection.deleteConfirm', { name: deleteConfirm.connection.name })}
+            aria-modal="true"
+            className="dialog"
+            role="dialog"
+          >
+            <h3>{t('connection.deleteAction')}</h3>
+            <p>{t('connection.deleteConfirm', { name: deleteConfirm.connection.name })}</p>
+            <div className="dialog__actions">
+              <button type="button" onClick={() => setDeleteConfirm(null)}>
+                {t('dialog.cancel')}
+              </button>
+              <button
+                className="button-danger"
+                type="button"
+                onClick={() => void handleConfirmDelete()}
+              >
+                {t('connection.deleteAction')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </aside>
   )
 }

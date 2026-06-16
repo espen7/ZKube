@@ -238,6 +238,10 @@ function dismissDisconnectNotice() {
   setState({ disconnectNoticeOpen: false })
 }
 
+function clearFeedback() {
+  setState({ feedback: null })
+}
+
 async function saveConnection(input: {
   name: string
   hosts: string
@@ -366,6 +370,7 @@ export function useConnectionsStore() {
     openEditDialog,
     closeDialog,
     dismissDisconnectNotice,
+    clearFeedback,
     saveConnection,
     handleRuntimeEvent,
   }

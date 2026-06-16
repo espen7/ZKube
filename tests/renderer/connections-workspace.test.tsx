@@ -197,7 +197,10 @@ describe('Connections workspace', () => {
 
     fireEvent.click(screen.getByRole('menuitem', { name: /delete connection/i }))
 
-    expect(window.confirm).toHaveBeenCalled()
+    const deleteDialog = await screen.findByRole('dialog')
+    const confirmButton = within(deleteDialog).getByRole('button', { name: /delete connection/i })
+    fireEvent.click(confirmButton)
+
     expect(window.zkube.connections.delete).toHaveBeenCalledWith('staging-zk')
   })
 
