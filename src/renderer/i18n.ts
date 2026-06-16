@@ -53,6 +53,10 @@ const messages: Record<Language, MessageDictionary> = {
     'workbench.refreshConfirmDescription':
       'Refreshing this node will overwrite the current unsaved draft with the latest data from ZooKeeper.',
     'workbench.discardAndRefresh': 'Discard and refresh',
+    'workbench.saveConfirmTitle': 'Save changes?',
+    'workbench.saveConfirmDescription':
+      'Are you sure you want to save the changes to this node? This will update the node data in ZooKeeper.',
+    'workbench.confirmSave': 'Save',
     'tool.createConnection': 'create connection',
     'tool.openSettings': 'open settings',
     'tool.importConnections': 'import connections',
@@ -233,6 +237,9 @@ const messages: Record<Language, MessageDictionary> = {
     'workbench.refreshConfirmTitle': '放弃未保存的修改？',
     'workbench.refreshConfirmDescription': '刷新当前节点会用 ZooKeeper 里的最新数据覆盖本地未保存草稿。',
     'workbench.discardAndRefresh': '放弃并刷新',
+    'workbench.saveConfirmTitle': '确认保存？',
+    'workbench.saveConfirmDescription': '确定要保存对该节点的修改吗？这将更新 ZooKeeper 中的节点数据。',
+    'workbench.confirmSave': '保存',
     'tool.createConnection': '新建连接',
     'tool.openSettings': '打开设置',
     'tool.importConnections': '导入连接',

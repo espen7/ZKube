@@ -305,6 +305,8 @@ export class NodeZkClient implements ZooKeeperClient {
       })
     })
 
+    children.sort((a, b) => a.localeCompare(b))
+
     return Promise.all(
       children.map(async (childName) => {
         const childPath = joinChildPath(path, childName)

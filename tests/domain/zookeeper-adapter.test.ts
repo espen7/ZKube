@@ -368,18 +368,18 @@ describe('NodeZkClient', () => {
 
     await expect(client.getChildren('/')).resolves.toEqual([
       {
-        path: '/healthy',
-        name: 'healthy',
-        hasChildren: false,
-        dataLength: 13,
-        mtime: 1_700_000_900_000,
-      },
-      {
         path: '/broken',
         name: 'broken',
         hasChildren: false,
         dataLength: null,
         mtime: null,
+      },
+      {
+        path: '/healthy',
+        name: 'healthy',
+        hasChildren: false,
+        dataLength: 13,
+        mtime: 1_700_000_900_000,
       },
     ])
   })

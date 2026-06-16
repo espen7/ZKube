@@ -50,6 +50,7 @@ export function NodeWorkbench() {
     saveTab,
   } = useWorkbenchStore()
   const [refreshConfirmOpen, setRefreshConfirmOpen] = useState(false)
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false)
   const [markContextMenu, setMarkContextMenu] =
     useState<MarkContextMenuState | null>(null)
 
@@ -119,6 +120,23 @@ export function NodeWorkbench() {
     }
 
     await refreshTab(activeTab.path)
+  }
+
+  function handleSaveClick() {
+    if (!activeTab) {
+      return
+    }
+
+    setSaveConfirmOpen(true)
+  }
+
+  async function handleConfirmSave() {
+    if (!activeTab) {
+      return
+    }
+
+    setSaveConfirmOpen(false)
+    await saveTab(activeTab.path)
   }
 
   async function handleMarkedNodeClick(path: string) {
@@ -249,7 +267,7 @@ export function NodeWorkbench() {
               onChange={(value) => setDraft(activeTab.path, value)}
               onFormatJson={() => applyFormatter(activeTab.path, formatJson)}
               onFormatXml={() => applyFormatter(activeTab.path, formatXml)}
-              onSave={() => void saveTab(activeTab.path)}
+              onSave={handleSaveClick}
             />
           ) : null}
 
@@ -316,6 +334,32 @@ export function NodeWorkbench() {
                 }}
               >
                 {t('workbench.discardAndRefresh')}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {saveConfirmOpen && activeTab ? (
+        <div className="dialog-backdrop dialog-backdrop--overlay">
+          <div
+            aria-label={t('workbench.saveConfirmTitle')}
+            aria-modal="true"
+            className="dialog"
+            role="dialog"
+          >
+            <h3>{t('workbench.saveConfirmTitle')}</h3>
+            <p>{t('workbench.saveConfirmDescription')}</p>
+            <div className="dialog__actions">
+              <button type="button" onClick={() => setSaveConfirmOpen(false)}>
+                {t('dialog.cancel')}
+              </button>
+              <button
+                className="button-primary"
+                type="button"
+                onClick={() => void handleConfirmSave()}
+              >
+                {t('workbench.confirmSave')}
               </button>
             </div>
           </div>

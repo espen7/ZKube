@@ -421,12 +421,24 @@ describe('node workbench', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     })
 
+    const saveDialog = await screen.findByRole('dialog', { name: 'Save changes?' })
+    const saveConfirmButton = within(saveDialog).getByRole('button', { name: 'Save' })
+    await act(async () => {
+      fireEvent.click(saveConfirmButton)
+    })
+
     fireEvent.change(editor, {
       target: { value: '{"service":"zk","enabled":false}' },
     })
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    })
+
+    const saveDialog2 = await screen.findByRole('dialog', { name: 'Save changes?' })
+    const saveConfirmButton2 = within(saveDialog2).getByRole('button', { name: 'Save' })
+    await act(async () => {
+      fireEvent.click(saveConfirmButton2)
     })
 
     expect(updateMock).toHaveBeenNthCalledWith(
@@ -463,6 +475,12 @@ describe('node workbench', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     })
 
+    const saveDialog = await screen.findByRole('dialog', { name: 'Save changes?' })
+    const saveConfirmButton = within(saveDialog).getByRole('button', { name: 'Save' })
+    await act(async () => {
+      fireEvent.click(saveConfirmButton)
+    })
+
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'This node was updated elsewhere. Refresh the node and review the latest data before saving again.',
     )
@@ -481,6 +499,12 @@ describe('node workbench', () => {
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    })
+
+    const saveDialog = await screen.findByRole('dialog', { name: 'Save changes?' })
+    const saveConfirmButton = within(saveDialog).getByRole('button', { name: 'Save' })
+    await act(async () => {
+      fireEvent.click(saveConfirmButton)
     })
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
