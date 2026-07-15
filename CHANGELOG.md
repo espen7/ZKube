@@ -8,6 +8,18 @@ The format is inspired by Keep a Changelog, and this project follows Semantic Ve
 
 - Ongoing hardening, UX polish, and follow-up features are tracked here before the next tagged release.
 
+## [0.1.1] - 2026-07-15
+
+### Added
+
+- Node sorting controls in the connections workspace
+- Improved root-node interactions and marked-node workflows
+
+### Changed
+
+- Refined tree navigation, input behavior, and connection sidebar interactions
+- Updated navigation icons, typography, README documentation, and settings placement
+
 ## [0.1.0] - 2026-05-14
 
 Initial public baseline for the Windows-first desktop workbench.
