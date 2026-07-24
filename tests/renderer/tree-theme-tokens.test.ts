@@ -10,8 +10,8 @@ describe('tree theme tokens', () => {
       'utf8',
     )
 
-    expect(css).toContain('--tree-row-odd: #f9fafc;')
-    expect(css).toContain('--tree-row-even: #f2f4f7;')
-    expect(css).toContain('--tree-row-hover: #e6f1ee;')
+    expect(css).toContain('--tree-row-odd: #ffffff;')
+    expect(css).toContain('--tree-row-even: #fbfbfd;')
+    expect(css).toContain('--tree-row-hover: #f0f6ff;')
   })
 })

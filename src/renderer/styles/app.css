@@ -13,10 +13,9 @@ body,
 body {
   margin: 0;
   color: var(--text-main);
-  background:
-    radial-gradient(circle at top right, rgba(36, 200, 165, 0.16), transparent 24%),
-    radial-gradient(circle at left center, rgba(76, 120, 255, 0.08), transparent 26%),
-    linear-gradient(180deg, var(--bg-app-start) 0%, var(--bg-app-end) 45%, var(--bg-app-start) 100%);
+  background: var(--bg-app-start);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
@@ -206,6 +205,7 @@ button {
 .panel__title {
   margin: 0;
   font-size: 1rem;
+  letter-spacing: -0.01em;
 }
 
 .panel__actions {
@@ -262,12 +262,14 @@ button {
   top: 0;
   z-index: 1;
   padding: 4px 10px 10px;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-muted);
+  border-bottom: 1px solid var(--hairline);
+  color: var(--text-soft);
   font-size: 0.78rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  background: var(--bg-panel);
+  background: var(--glass-bg);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
 .tree-grid__header span:nth-child(2),
@@ -325,23 +327,18 @@ button {
 }
 
 .tree-row:hover {
-  border-top-color: var(--border);
-  border-bottom-color: var(--border);
   background: var(--tree-row-hover);
 }
 
-.tree-row--selected {
-  border-top-color: rgba(36, 200, 165, 0.28);
-  border-bottom-color: rgba(36, 200, 165, 0.28);
-  background: var(--bg-accent-soft);
+.tree-row--selected,
+.tree-row--selected:hover {
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  background: var(--bg-accent);
 }
 
 .tree-row--root {
-  border-top-color: rgba(76, 120, 255, 0.18);
-  border-bottom-color: rgba(76, 120, 255, 0.18);
-  background:
-    linear-gradient(90deg, rgba(76, 120, 255, 0.06), transparent 42%),
-    var(--tree-row-odd);
+  background: var(--tree-row-odd);
 }
 
 .tree-row__node {
@@ -516,16 +513,14 @@ button {
 }
 
 .connection-card--active {
-  border-color: rgba(36, 200, 165, 0.34);
+  border-color: var(--accent);
   box-shadow:
-    0 0 0 1px rgba(36, 200, 165, 0.12),
+    0 0 0 1px var(--accent),
     var(--shadow);
 }
 
 .connection-card--healthy {
-  background:
-    linear-gradient(135deg, rgba(36, 200, 165, 0.1), transparent 55%),
-    var(--bg-panel-soft);
+  background: var(--bg-panel-soft);
 }
 
 .connection-card--pending {
@@ -535,6 +530,7 @@ button {
 .connection-card__title {
   margin: 0;
   font-size: 0.98rem;
+  letter-spacing: -0.01em;
 }
 
 .connection-card__meta {
@@ -569,10 +565,12 @@ button {
   z-index: 20;
   min-width: 168px;
   padding: 6px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-md);
-  background: var(--bg-panel-strong);
-  box-shadow: var(--shadow);
+  background: var(--glass-bg);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  box-shadow: var(--shadow-overlay);
 }
 
 .context-menu__item {
@@ -649,8 +647,14 @@ button {
 }
 
 .button-primary {
-  border-color: rgba(36, 200, 165, 0.38);
-  background: var(--bg-accent-soft);
+  border-color: var(--accent);
+  color: #fff;
+  background: var(--accent);
+}
+
+.button-primary:hover {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
 }
 
 .button-danger {
@@ -694,9 +698,9 @@ button:disabled {
 }
 
 .connection-state-badge--healthy {
-  border-color: rgba(36, 200, 165, 0.34);
-  color: var(--accent-strong);
-  background: var(--bg-accent-soft);
+  border-color: transparent;
+  color: var(--live);
+  background: var(--live-soft);
 }
 
 .connection-state-badge--pending {
@@ -845,9 +849,7 @@ button:disabled {
   justify-items: start;
   width: 100%;
   padding: 32px;
-  background:
-    linear-gradient(140deg, rgba(36, 200, 165, 0.08), transparent 42%),
-    var(--bg-panel);
+  background: var(--bg-panel);
 }
 
 .workspace-card--chrome {
@@ -891,6 +893,7 @@ button:disabled {
 .workspace-card h2 {
   margin: 0 0 12px;
   font-size: 1.8rem;
+  letter-spacing: -0.02em;
 }
 
 .workbench-mark-list {
@@ -992,6 +995,8 @@ button:disabled {
   place-items: center;
   padding: 24px;
   background: var(--bg-overlay);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
 }
 
 .dialog-backdrop--overlay {
@@ -1001,10 +1006,10 @@ button:disabled {
 .dialog {
   width: min(100%, 480px);
   padding: 22px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   background: var(--bg-panel-strong);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-overlay);
 }
 
 .dialog h3 {

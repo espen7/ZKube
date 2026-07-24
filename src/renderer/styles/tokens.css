@@ -37,12 +37,18 @@
 :root {
   --font-size-base: 14px;
   --font-family-ui:
-    'Segoe UI',
+    -apple-system,
+    BlinkMacSystemFont,
+    'SF Pro Text',
+    'SF Pro Display',
+    'Helvetica Neue',
     'PingFang SC',
+    'Hiragino Sans GB',
     'Microsoft YaHei',
     sans-serif;
   --font-family-mono:
     'JetBrains Mono',
+    'SF Mono',
     'Cascadia Code',
     'Consolas',
     monospace;
@@ -52,6 +58,8 @@
   --radius-lg: 22px;
   --radius-md: 16px;
   --radius-sm: 12px;
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
 }
 
 :root[data-font-size='small'] {
@@ -68,52 +76,62 @@
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg-app-start: #07111f;
-  --bg-app-end: #091521;
-  --bg-panel: rgba(10, 23, 37, 0.94);
-  --bg-panel-soft: rgba(17, 35, 54, 0.92);
-  --bg-panel-strong: rgba(7, 17, 31, 0.98);
-  --bg-subtle: rgba(255, 255, 255, 0.02);
-  --bg-overlay: rgba(2, 8, 14, 0.66);
-  --bg-accent: rgba(36, 200, 165, 0.14);
-  --bg-accent-soft: rgba(36, 200, 165, 0.12);
-  --bg-pending: rgba(242, 196, 90, 0.12);
-  --text-main: #edf4fb;
-  --text-muted: #90a6bd;
-  --text-soft: #6d8197;
-  --accent: #24c8a5;
-  --accent-strong: #33e1bb;
-  --pending: #f2c45a;
-  --border: rgba(143, 168, 192, 0.18);
-  --border-strong: rgba(143, 168, 192, 0.32);
-  --shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
-  --tree-row-odd: #0e1724;
-  --tree-row-even: #152131;
-  --tree-row-hover: #1d4a43;
+  --bg-app-start: #161617;
+  --bg-app-end: #161617;
+  --bg-panel: #1d1d1f;
+  --bg-panel-soft: #252527;
+  --bg-panel-strong: #1d1d1f;
+  --bg-subtle: rgba(255, 255, 255, 0.06);
+  --bg-overlay: rgba(0, 0, 0, 0.55);
+  --bg-accent: rgba(10, 132, 255, 0.22);
+  --bg-accent-soft: rgba(10, 132, 255, 0.16);
+  --bg-pending: rgba(255, 159, 10, 0.16);
+  --text-main: #f5f5f7;
+  --text-muted: #98989d;
+  --text-soft: #8e8e93;
+  --accent: #0a84ff;
+  --accent-strong: #409cff;
+  --pending: #ff9f0a;
+  --live: #30d158;
+  --live-soft: rgba(48, 209, 88, 0.18);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --hairline: rgba(255, 255, 255, 0.1);
+  --glass-bg: rgba(29, 29, 31, 0.72);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.4), 0 14px 40px rgba(0, 0, 0, 0.5);
+  --shadow-overlay: 0 2px 8px rgba(0, 0, 0, 0.5), 0 30px 80px rgba(0, 0, 0, 0.62);
+  --tree-row-odd: #1d1d1f;
+  --tree-row-even: #202022;
+  --tree-row-hover: #24344a;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg-app-start: #eef4fb;
-  --bg-app-end: #f7fafc;
-  --bg-panel: rgba(255, 255, 255, 0.95);
-  --bg-panel-soft: rgba(247, 250, 252, 0.92);
-  --bg-panel-strong: rgba(255, 255, 255, 0.98);
-  --bg-subtle: rgba(15, 23, 42, 0.04);
-  --bg-overlay: rgba(148, 163, 184, 0.22);
-  --bg-accent: rgba(19, 177, 146, 0.12);
-  --bg-accent-soft: rgba(19, 177, 146, 0.1);
-  --bg-pending: rgba(194, 144, 29, 0.12);
-  --text-main: #112031;
-  --text-muted: #55697d;
-  --text-soft: #728498;
-  --accent: #139a80;
-  --accent-strong: #0f7d69;
-  --pending: #c2901d;
-  --border: rgba(116, 138, 161, 0.22);
-  --border-strong: rgba(116, 138, 161, 0.34);
-  --shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-  --tree-row-odd: #f9fafc;
-  --tree-row-even: #f2f4f7;
-  --tree-row-hover: #e6f1ee;
+  --bg-app-start: #f5f5f7;
+  --bg-app-end: #f5f5f7;
+  --bg-panel: #ffffff;
+  --bg-panel-soft: #fbfbfd;
+  --bg-panel-strong: #ffffff;
+  --bg-subtle: #f5f5f7;
+  --bg-overlay: rgba(0, 0, 0, 0.18);
+  --bg-accent: rgba(0, 113, 227, 0.12);
+  --bg-accent-soft: rgba(0, 113, 227, 0.08);
+  --bg-pending: rgba(255, 159, 10, 0.12);
+  --text-main: #1d1d1f;
+  --text-muted: #6e6e73;
+  --text-soft: #86868b;
+  --accent: #0071e3;
+  --accent-strong: #0077ed;
+  --pending: #b25000;
+  --live: #248a3d;
+  --live-soft: rgba(52, 199, 89, 0.12);
+  --border: rgba(0, 0, 0, 0.07);
+  --border-strong: rgba(0, 0, 0, 0.12);
+  --hairline: rgba(0, 0, 0, 0.07);
+  --glass-bg: rgba(245, 245, 247, 0.72);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 14px 40px rgba(0, 0, 0, 0.05);
+  --shadow-overlay: 0 2px 8px rgba(0, 0, 0, 0.1), 0 30px 80px rgba(0, 0, 0, 0.24);
+  --tree-row-odd: #ffffff;
+  --tree-row-even: #fbfbfd;
+  --tree-row-hover: #f0f6ff;
 }
