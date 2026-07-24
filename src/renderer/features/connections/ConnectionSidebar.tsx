@@ -15,7 +15,7 @@ type DeleteConfirmState = {
   connection: StoredConnection
 }
 
-export function ConnectionSidebar() {
+export function ConnectionSidebar({ collapsed = false }: { collapsed?: boolean }) {
   const {
     items,
     load,
@@ -135,7 +135,16 @@ export function ConnectionSidebar() {
   }
 
   return (
-    <aside className="panel sidebar" aria-label="Connections sidebar">
+    <aside
+      className={[
+        'panel',
+        'sidebar',
+        collapsed ? 'sidebar--collapsed' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      aria-label="Connections sidebar"
+    >
       <div className="panel__header">
         <div>
           <div className="panel__eyebrow">{t('panel.connections')}</div>

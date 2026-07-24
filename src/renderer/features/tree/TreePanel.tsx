@@ -153,6 +153,11 @@ function TreeBranch({
         ref={(element) => registerRowRef(row.path, element)}
         tabIndex={0}
         onClick={() => onOpen(row.path)}
+        onDoubleClick={() => {
+          if (row.hasChildren) {
+            void onToggle(row.path)
+          }
+        }}
         onContextMenu={(event) => onContextMenu(event, row)}
         onMouseEnter={() => onHover(row.path)}
         onMouseLeave={() => onHover(null)}

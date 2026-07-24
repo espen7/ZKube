@@ -1,7 +1,7 @@
 {
   "name": "zkube",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A polished desktop workspace for Apache ZooKeeper, designed for clear navigation, safe editing, and operational focus.",
   "author": "ZKube contributors",
   "homepage": "https://github.com/espen7/ZKube",

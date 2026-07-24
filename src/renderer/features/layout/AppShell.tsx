@@ -59,9 +59,18 @@ export function AppShell() {
   const [navigationWidth, setNavigationWidth] = useState(() =>
     getSafeNavigationWidth(DEFAULT_NAVIGATION_WIDTH, window.innerWidth),
   )
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const dragOffsetRef = useRef<number | null>(null)
   const activeConnection =
     items.find((item) => item.id === activeConnectionId) ?? null
+
+  useEffect(() => {
+    if (connectionState === 'connected') {
+      setSidebarCollapsed(true)
+    } else if (connectionState === 'disconnected') {
+      setSidebarCollapsed(false)
+    }
+  }, [connectionState])
 
   useEffect(() => {
     const handleMouseMove = (event: MouseEvent) => {
@@ -112,9 +121,20 @@ export function AppShell() {
       className="app-shell"
       style={{ '--navigation-width': `${navigationWidth}px` } as CSSProperties}
     >
-      <section aria-label="Navigation workspace" className="navigation-workspace">
-        <NavigationToolRail />
-        <ConnectionSidebar />
+      <section
+        aria-label="Navigation workspace"
+        className={[
+          'navigation-workspace',
+          sidebarCollapsed ? 'navigation-workspace--collapsed' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <NavigationToolRail
+          sidebarCollapsed={sidebarCollapsed}
+          onToggleSidebar={() => setSidebarCollapsed((value) => !value)}
+        />
+        <ConnectionSidebar collapsed={sidebarCollapsed} />
         <TreePanel />
       </section>
 

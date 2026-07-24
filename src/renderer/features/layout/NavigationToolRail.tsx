@@ -21,7 +21,6 @@ function RailButton({
     <button
       aria-label={label}
       className="tool-rail__button"
-      title={label}
       type="button"
       onClick={onClick}
     >
@@ -79,6 +78,15 @@ function AboutIcon() {
       <circle cx="12" cy="12" r="10" />
       <path d="M12 16v-4" />
       <path d="M12 8h.01" />
+    </LucideIcon>
+  )
+}
+
+function PanelLeftIcon() {
+  return (
+    <LucideIcon name="panel-left">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M9 3v18" />
     </LucideIcon>
   )
 }
@@ -196,7 +204,13 @@ function AboutDialog({
   )
 }
 
-export function NavigationToolRail() {
+export function NavigationToolRail({
+  sidebarCollapsed,
+  onToggleSidebar,
+}: {
+  sidebarCollapsed: boolean
+  onToggleSidebar: () => void
+}) {
   const { openCreateDialog, importFromFile, exportToFile } = useConnectionsStore()
   const { t } = useI18n()
   const [aboutOpen, setAboutOpen] = useState(false)
@@ -242,6 +256,22 @@ export function NavigationToolRail() {
     <>
       <aside aria-label="Navigation tools" className="tool-rail">
         <div className="tool-rail__group">
+          <button
+            aria-label={t('tool.toggleConnections')}
+            aria-pressed={!sidebarCollapsed}
+            className={[
+              'tool-rail__button',
+              sidebarCollapsed ? '' : 'tool-rail__button--active',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            type="button"
+            onClick={onToggleSidebar}
+          >
+            <span aria-hidden="true" className="tool-rail__icon">
+              <PanelLeftIcon />
+            </span>
+          </button>
           <RailButton label={t('tool.createConnection')} onClick={openCreateDialog}>
             <AddIcon />
           </RailButton>

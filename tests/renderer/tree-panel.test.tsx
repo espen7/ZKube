@@ -320,6 +320,30 @@ describe('Tree panel', () => {
     expect(await screen.findByText('api')).toBeInTheDocument()
   })
 
+  it('expands a loaded child on double-click of the row', async () => {
+    await act(async () => {
+      render(<App />)
+    })
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Load root nodes' }))
+    })
+
+    const loadedTree = await screen.findByRole('list', { name: 'Loaded tree nodes' })
+    const servicesRow = within(loadedTree)
+      .getByText('services')
+      .closest('.tree-row')
+
+    expect(servicesRow).toBeDefined()
+
+    await act(async () => {
+      fireEvent.doubleClick(servicesRow as HTMLElement)
+    })
+
+    expect(loadChildrenMock).toHaveBeenCalledWith('/services')
+    expect(await screen.findByText('api')).toBeInTheDocument()
+  })
+
   it('runs deep search without rendering the old demo create/delete buttons', async () => {
     await act(async () => {
       render(<App />)

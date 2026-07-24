@@ -104,6 +104,30 @@ button {
   grid-template-columns: 56px 320px minmax(280px, 1fr);
   gap: 12px;
   overflow: hidden;
+  transition: grid-template-columns 320ms var(--ease-spring, ease);
+}
+
+.navigation-workspace--collapsed {
+  grid-template-columns: 56px 0px minmax(280px, 1fr);
+}
+
+.sidebar {
+  transition:
+    opacity 200ms var(--ease-out-quart, ease),
+    visibility 0ms linear 0ms;
+}
+
+.sidebar--collapsed {
+  padding: 0;
+  border-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  visibility: hidden;
+  box-shadow: none;
+  transition:
+    opacity 200ms var(--ease-out-quart, ease),
+    visibility 0ms linear 260ms;
 }
 
 .layout-resizer {
@@ -161,6 +185,7 @@ button {
 }
 
 .tool-rail__button {
+  position: relative;
   display: grid;
   place-items: center;
   width: 38px;
@@ -171,8 +196,50 @@ button {
   background: var(--bg-subtle);
 }
 
+.tool-rail__button::after {
+  content: attr(aria-label);
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%) translateX(-4px);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.82);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  box-shadow: var(--shadow-overlay);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 40;
+  transition:
+    opacity 140ms var(--ease-out-quart, ease),
+    transform 140ms var(--ease-out-quart, ease);
+}
+
+.tool-rail__button:hover::after,
+.tool-rail__button:focus-visible::after {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0);
+  transition-delay: 220ms;
+}
+
+:root[data-theme='dark'] .tool-rail__button::after {
+  background: rgba(72, 72, 76, 0.96);
+  color: #f5f5f7;
+}
+
 .tool-rail__button:hover {
   border-color: var(--border-strong);
+  background: var(--bg-accent-soft);
+}
+
+.tool-rail__button--active {
+  border-color: var(--accent);
+  color: var(--accent);
   background: var(--bg-accent-soft);
 }
 
@@ -1183,6 +1250,15 @@ button:disabled {
 
   .navigation-workspace {
     grid-template-columns: 1fr;
+  }
+
+  .navigation-workspace--collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar--collapsed {
+    max-height: 0;
+    margin: 0;
   }
 
   .layout-resizer {

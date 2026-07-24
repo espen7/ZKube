@@ -193,4 +193,30 @@ describe('navigation workspace layout', () => {
       'https://github.com/espen7/ZKube',
     )
   })
+
+  it('toggles the connections panel from a tool rail button', () => {
+    render(<App />)
+
+    const navigationWorkspace = screen.getByLabelText('Navigation workspace')
+    const sidebar = screen.getByLabelText('Connections sidebar')
+    const toggle = within(navigationWorkspace).getByRole('button', {
+      name: /toggle connections panel/i,
+    })
+
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(navigationWorkspace).not.toHaveClass('navigation-workspace--collapsed')
+    expect(sidebar).not.toHaveClass('sidebar--collapsed')
+
+    fireEvent.click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(navigationWorkspace).toHaveClass('navigation-workspace--collapsed')
+    expect(sidebar).toHaveClass('sidebar--collapsed')
+
+    fireEvent.click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    expect(navigationWorkspace).not.toHaveClass('navigation-workspace--collapsed')
+    expect(sidebar).not.toHaveClass('sidebar--collapsed')
+  })
 })

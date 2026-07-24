@@ -8,6 +8,18 @@ The format is inspired by Keep a Changelog, and this project follows Semantic Ve
 
 - Ongoing hardening, UX polish, and follow-up features are tracked here before the next tagged release.
 
+## [0.1.2] - 2026-07-24
+
+### Added
+
+- Collapsible connections panel that auto-collapses on connect and auto-expands on disconnect, with a tool rail toggle
+- Custom Apple-style hover tooltips for the navigation tool rail buttons
+- Double-click a tree node to expand or collapse its children
+
+### Changed
+
+- Reworked light and dark themes to follow Apple's design language (Apple blue accent, neutral panels, hairline separators)
+
 ## [0.1.1] - 2026-07-15
 
 ### Added
