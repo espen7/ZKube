@@ -70,8 +70,12 @@ function getErrorMessage(error: unknown): string {
     return 'A node with the same path already exists.'
   }
 
+  if (code === 'NODE_NOT_EMPTY') {
+    return 'This node has child nodes. Use "Delete subtree" to remove it and its children.'
+  }
+
   if (error instanceof Error && error.message) {
-    return error.message
+    return stripIpcPrefix(error.message)
   }
 
   return 'Tree action failed. Please try again.'
@@ -94,9 +98,27 @@ function getErrorCode(error: unknown): AppErrorCode | null {
     ) {
       return 'NODE_ALREADY_EXISTS'
     }
+
+    // Electron ipcRenderer.invoke 在主进程 reject 时会丢失 Error 的自定义 code 属性，
+    // 因此对 NODE_NOT_EMPTY 也用 message 兜底识别（后端固定文案含 "contains child nodes"）。
+    if (/contains child nodes/i.test(error.message)) {
+      return 'NODE_NOT_EMPTY'
+    }
   }
 
   return null
+}
+
+function stripIpcPrefix(message: string): string {
+  // Electron 在主进程 handler reject 时，会把错误包装成
+  // "Error invoking remote method '<channel>': <原 error.toString()>"
+  // 剥离这层包装和 "Error: " 前缀，让用户看到干净的原始错误信息。
+  const match = message.match(/^Error invoking remote method '[^']+':\s*([\s\S]*)$/)
+  if (!match) {
+    return message
+  }
+
+  return match[1].replace(/^Error:\s*/, '')
 }
 
 function isLoading(path: string) {
@@ -603,12 +625,14 @@ async function createChildNode(
   }
 }
 
+type DeleteNodeResult = { ok: boolean; error: string | null }
+
 async function deleteNode(
   path: string,
   options?: { version?: number; recursive?: boolean },
-) {
+): Promise<DeleteNodeResult> {
   if (!window.zkube?.zookeeper.delete) {
-    return false
+    return { ok: false, error: 'Delete is unavailable.' }
   }
 
   try {
@@ -617,10 +641,11 @@ async function deleteNode(
       marksByPath: filterMarks(path),
       feedback: null,
     })
-    return true
+    return { ok: true, error: null }
   } catch (error) {
-    setState({ feedback: getErrorMessage(error) })
-    return false
+    // 错误信息交给调用方（删除弹窗）展示，不再写入顶部 feedback，
+    // 避免错误显示在列表上方、与发起操作的弹窗脱节。
+    return { ok: false, error: getErrorMessage(error) }
   }
 }
 

@@ -326,12 +326,13 @@ function CreateChildNodeDialog(props: {
 
 function DeleteNodeDialog(props: {
   row: TreeNodeRow
+  error: string | null
   onCancel: () => void
   onDeleteNodeOnly: () => Promise<void>
   onDeleteSubtree: () => Promise<void>
 }) {
   const { t } = useI18n()
-  const { row, onCancel, onDeleteNodeOnly, onDeleteSubtree } = props
+  const { row, error, onCancel, onDeleteNodeOnly, onDeleteSubtree } = props
 
   return (
     <div className="dialog-backdrop">
@@ -345,6 +346,11 @@ function DeleteNodeDialog(props: {
         <p>{t('tree.deleteNodeDescription', { path: row.path })}</p>
         {row.hasChildren ? (
           <p>{t('tree.deleteSubtreeDescription')}</p>
+        ) : null}
+        {error ? (
+          <p className="dialog__error" role="alert">
+            {error}
+          </p>
         ) : null}
 
         <div className="dialog__actions">
@@ -402,8 +408,10 @@ export function TreePanel() {
   const [contextMenu, setContextMenu] = useState<TreeContextMenuState | null>(null)
   const [createDialog, setCreateDialog] = useState<CreateDialogState | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [hoveredPath, setHoveredPath] = useState<string | null>(null)
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const lastScrolledPathRef = useRef<string | null>(null)
 
   const rootLoaded = Object.prototype.hasOwnProperty.call(rowsByPath, '/')
   const rootRows = rowsByPath['/'] ?? []
@@ -434,6 +442,7 @@ export function TreePanel() {
       setContextMenu(null)
       setCreateDialog(null)
       setDeleteDialog(null)
+      setDeleteError(null)
       setHoveredPath(null)
       return
     }
@@ -472,20 +481,26 @@ export function TreePanel() {
 
   useEffect(() => {
     if (!activePath) {
+      lastScrolledPathRef.current = null
+      return
+    }
+
+    // 只在 activePath 真正变化时滚动，避免展开/折叠或数据刷新引发的二次跳动。
+    if (lastScrolledPathRef.current === activePath) {
       return
     }
 
     const activeRow = rowRefs.current[activePath]
-    if (!activeRow) {
+    if (!activeRow || typeof activeRow.scrollIntoView !== 'function') {
       return
     }
 
-    if (typeof activeRow.scrollIntoView !== 'function') {
-      return
-    }
+    lastScrolledPathRef.current = activePath
 
+    // 模仿 RedisInsight：仅在节点不可见时以最小距离滚动到边缘，
+    // 已经在视口内的节点保持原位，不强制居中。
     activeRow.scrollIntoView({
-      block: 'center',
+      block: 'nearest',
       inline: 'nearest',
     })
   }, [activePath, expandedPaths, rowsByPath])
@@ -516,9 +531,12 @@ export function TreePanel() {
       return
     }
 
-    const deleted = await deleteNode(deleteDialog.row.path)
-    if (deleted) {
+    const result = await deleteNode(deleteDialog.row.path)
+    if (result.ok) {
       setDeleteDialog(null)
+      setDeleteError(null)
+    } else {
+      setDeleteError(result.error)
     }
   }
 
@@ -527,15 +545,19 @@ export function TreePanel() {
       return
     }
 
-    const deleted = await deleteNode(deleteDialog.row.path, { recursive: true })
-    if (deleted) {
+    const result = await deleteNode(deleteDialog.row.path, { recursive: true })
+    if (result.ok) {
       setDeleteDialog(null)
+      setDeleteError(null)
+    } else {
+      setDeleteError(result.error)
     }
   }
 
   function handleQuickDelete(row: TreeNodeRow) {
     setHoveredPath(null)
     setContextMenu(null)
+    setDeleteError(null)
     setDeleteDialog({ row })
   }
 
@@ -667,6 +689,7 @@ export function TreePanel() {
               type="button"
               onClick={() => {
                 setContextMenu(null)
+                setDeleteError(null)
                 setDeleteDialog({ row: contextMenu.row })
               }}
             >
@@ -721,7 +744,11 @@ export function TreePanel() {
       {deleteDialog ? (
         <DeleteNodeDialog
           row={deleteDialog.row}
-          onCancel={() => setDeleteDialog(null)}
+          error={deleteError}
+          onCancel={() => {
+            setDeleteDialog(null)
+            setDeleteError(null)
+          }}
           onDeleteNodeOnly={handleDeleteNodeOnly}
           onDeleteSubtree={handleDeleteSubtree}
         />

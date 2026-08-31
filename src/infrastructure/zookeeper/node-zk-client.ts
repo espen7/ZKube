@@ -505,19 +505,10 @@ export class NodeZkClient implements ZooKeeperClient {
   }
 
   private async deleteSubtree(path: string): Promise<void> {
-    const paths = await new Promise<string[]>((resolve, reject) => {
-      this.requireClient().listSubTreeBFS(path, (error, nextPaths = []) => {
-        if (error) {
-          reject(this.toAppError(error))
-          return
-        }
-
-        resolve(nextPaths)
-      })
-    })
-
-    const pathsToDelete = Array.from(new Set([...paths, path]))
-      .sort((left, right) => right.length - left.length)
+    const paths = await this.collectSubtreePaths(path)
+    // collectSubtreePaths 返回 BFS 顺序（根→子→孙），反转后变成深→浅，
+    // 保证先删叶子节点，中间节点删完子节点后才被删，避免撞 NOT_EMPTY。
+    const pathsToDelete = Array.from(new Set(paths)).reverse()
 
     for (const currentPath of pathsToDelete) {
       await new Promise<void>((resolve, reject) => {
@@ -531,6 +522,38 @@ export class NodeZkClient implements ZooKeeperClient {
         })
       })
     }
+  }
+
+  private async collectSubtreePaths(rootPath: string): Promise<string[]> {
+    // node-zookeeper-client 自带的 listSubTreeBFS 用 async.reduce 只遍历初始数组
+    // [root]，运行时 push 进去的新子节点不会被遍历，因此只返回 root 和直接子节点，
+    // 不会递归到孙子节点。删除多层子树时中间节点会因仍有子节点而撞 NOT_EMPTY。
+    // 这里用迭代 BFS 自己收集完整子树。
+    const result: string[] = []
+    const queue: string[] = [rootPath]
+
+    while (queue.length > 0) {
+      const current = queue.shift() as string
+      result.push(current)
+
+      const childNames = await new Promise<string[]>((resolve, reject) => {
+        this.requireClient().getChildren(current, (error, kids = []) => {
+          if (error) {
+            reject(this.toAppError(error))
+            return
+          }
+
+          resolve(kids)
+        })
+      })
+
+      for (const child of childNames) {
+        const childPath = current === '/' ? `/${child}` : `${current}/${child}`
+        queue.push(childPath)
+      }
+    }
+
+    return result
   }
 
   private toAppError(

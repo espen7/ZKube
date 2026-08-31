@@ -316,8 +316,12 @@ describe('NodeZkClient', () => {
   it('deletes subtrees from deepest child to root when recursive delete is requested', async () => {
     const factory = makeFactory()
     const removedPaths: string[] = []
-    factory.client.listSubTreeBFS = (_path, cb) => {
-      cb(null, ['/config', '/config/service'])
+    factory.client.getChildren = (path, cb) => {
+      if (path === '/config') {
+        cb(null, ['service'])
+      } else {
+        cb(null, [])
+      }
     }
     factory.client.remove = (path, _version, cb) => {
       removedPaths.push(path)
@@ -335,6 +339,44 @@ describe('NodeZkClient', () => {
 
     expect(removedPaths).toEqual([
       '/config/service',
+      '/config',
+    ])
+  })
+
+  it('deletes multi-level subtrees by recursing into grandchildren', async () => {
+    // 回归测试：node-zookeeper-client 自带的 listSubTreeBFS 用 async.reduce
+    // 只遍历初始数组 [root]，运行时 push 进去的新子节点不会被遍历，因此只返回
+    // root 和直接子节点，不会递归到孙子。删除多层子树时中间节点会因仍有子节点
+    // 而撞 NOT_EMPTY，导致 "Delete subtree" 失败。这里验证自实现的 BFS 能完整
+    // 收集整棵子树并按深→浅顺序删除。
+    const factory = makeFactory()
+    const removedPaths: string[] = []
+    factory.client.getChildren = (path, cb) => {
+      if (path === '/config') {
+        cb(null, ['a'])
+      } else if (path === '/config/a') {
+        cb(null, ['b'])
+      } else {
+        cb(null, [])
+      }
+    }
+    factory.client.remove = (path, _version, cb) => {
+      removedPaths.push(path)
+      cb(null)
+    }
+    const client = new NodeZkClient(
+      {
+        hosts: 'zk-1:2181',
+      },
+      () => factory,
+    )
+
+    await client.connect()
+    await client.deleteNode('/config', { recursive: true })
+
+    expect(removedPaths).toEqual([
+      '/config/a/b',
+      '/config/a',
       '/config',
     ])
   })

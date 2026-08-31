@@ -721,7 +721,7 @@ describe('node workbench', () => {
         await within(treeRegion).findByTitle('/config/service/child'),
       ).toBeInTheDocument()
       expect(scrollIntoViewMock).toHaveBeenCalledWith({
-        block: 'center',
+        block: 'nearest',
         inline: 'nearest',
       })
     } finally {

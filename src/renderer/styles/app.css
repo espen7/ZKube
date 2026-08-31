@@ -380,6 +380,9 @@ button {
   border-left: 0;
   border-radius: 0;
   cursor: pointer;
+  /* 树行作为可点击控件，禁止浏览器双击选词/拖拽选区行为，
+     避免双击展开时文字被像"全选待复制"一样高亮。 */
+  user-select: none;
   transition:
     border-color 140ms ease,
     background 140ms ease;
@@ -1086,6 +1089,16 @@ button:disabled {
 .dialog p {
   margin: 0 0 18px;
   color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.dialog__error {
+  margin: 0 0 18px;
+  padding: 10px 12px;
+  border: 1px solid rgba(226, 91, 91, 0.42);
+  border-radius: var(--radius-sm);
+  background: rgba(226, 91, 91, 0.16);
+  color: #fff5f5;
   line-height: 1.5;
 }
 
