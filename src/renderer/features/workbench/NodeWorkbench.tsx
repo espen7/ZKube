@@ -226,22 +226,36 @@ export function NodeWorkbench() {
         {activeTab ? (
           <section className="workspace-card workspace-card--chrome" aria-label="Node pane switcher">
             <div className="panel__body">
-              <div role="tablist" aria-label="Node panes">
-                {([
-                  ['Data', t('editor.data')],
-                  ['Meta', t('meta.title')],
-                  ['ACL', t('acl.title')],
-                ] as const).map(([pane, label]) => (
-                  <button
-                    key={pane}
-                    type="button"
-                    aria-pressed={activeTab.activePane === pane}
-                    onClick={() => setActivePane(activeTab.path, pane)}
-                    style={{ marginRight: '8px' }}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <div
+                role="tablist"
+                aria-label="Node panes"
+                className="segmented segmented--pane"
+              >
+                {(
+                  [
+                    ['Data', 'editor.data'],
+                    ['Meta', 'meta.title'],
+                    ['ACL', 'acl.title'],
+                  ] as const
+                ).map(([pane, messageKey]) => {
+                  const selected = activeTab.activePane === pane
+                  return (
+                    <button
+                      key={pane}
+                      type="button"
+                      aria-pressed={selected}
+                      className={[
+                        'segmented__item',
+                        selected ? 'is-selected' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      onClick={() => setActivePane(activeTab.path, pane)}
+                    >
+                      {t(messageKey)}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </section>
@@ -249,11 +263,10 @@ export function NodeWorkbench() {
 
         <div aria-label="Node workbench viewport" className="workspace-pane">
           {!activeTab ? (
-            <section className="workspace-card workspace-card--pane" aria-label="Empty node workbench">
-              <div className="panel__body panel__body--scroll">
-                <div className="placeholder-row">{t('workbench.empty')}</div>
-              </div>
-            </section>
+            <div className="workspace-pane__placeholder" aria-label="Empty workbench placeholder">
+              <strong>{t('workbench.emptyTitle')}</strong>
+              <span>{t('workbench.empty')}</span>
+            </div>
           ) : null}
 
           {activeTab?.activePane === 'Data' ? (

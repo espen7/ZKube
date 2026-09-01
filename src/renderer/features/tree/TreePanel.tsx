@@ -189,21 +189,48 @@ function TreeBranch({
           {row.hasChildren ? (
             <button
               aria-label={isExpanded ? t('tree.collapse') : t('tree.expand')}
-              className="tree-row__toggle"
+              className={[
+                'tree-row__toggle',
+                isExpanded ? 'tree-row__toggle--expanded' : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
               type="button"
               onClick={(event) => {
                 event.stopPropagation()
                 void onToggle(row.path)
               }}
             >
-              {isExpanded ? 'v' : '>'}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M6 4.5l5.5 5.5L6 15.5"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </button>
           ) : (
             <span
               aria-hidden="true"
               className="tree-row__toggle tree-row__toggle--placeholder"
             >
-              .
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 20 20"
+                fill="none"
+                aria-hidden="true"
+              >
+                <circle cx="10" cy="10" r="1.2" fill="currentColor" />
+              </svg>
             </span>
           )}
           <span aria-hidden="true" className="tree-row__icon">
@@ -403,6 +430,42 @@ function DeleteNodeDialog(props: {
   )
 }
 
+function formatRelativeSeconds(t: ReturnType<typeof useI18n>['t'], seconds: number): string {
+  if (seconds < 10) {
+    return t('tree.lastRefreshJustNow').replace(/^Last refresh: |^上次刷新：/, '')
+  }
+  if (seconds < 60) {
+    return `${seconds} s ago`
+  }
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) {
+    return `${minutes} min${minutes === 1 ? '' : 's'} ago`
+  }
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) {
+    return `${hours} h${hours === 1 ? '' : 's'} ago`
+  }
+  const days = Math.floor(hours / 24)
+  return `${days} d${days === 1 ? '' : 's'} ago`
+}
+
+function getLastRefreshLabel(
+  t: ReturnType<typeof useI18n>['t'],
+  lastRefreshedAt: number | null,
+  now: number,
+): string {
+  if (lastRefreshedAt == null) {
+    return t('tree.lastRefreshNever')
+  }
+  const seconds = Math.max(0, Math.floor((now - lastRefreshedAt) / 1000))
+  if (seconds < 10) {
+    return t('tree.lastRefreshJustNow')
+  }
+  return t('tree.lastRefreshAgo', {
+    value: formatRelativeSeconds(t, seconds),
+  })
+}
+
 export function TreePanel() {
   const { t } = useI18n()
   const activePath = useWorkbenchStore((store) => store.activePath)
@@ -417,6 +480,7 @@ export function TreePanel() {
     searchResults,
     feedback,
     refreshingTree,
+    lastRefreshedAt,
     loadRoot,
     refreshTree,
     toggleNode,
@@ -435,8 +499,16 @@ export function TreePanel() {
   const [deleteDialog, setDeleteDialog] = useState<DeleteDialogState | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [hoveredPath, setHoveredPath] = useState<string | null>(null)
+  const [now, setNow] = useState<number>(() => Date.now())
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const lastScrolledPathRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const lastRefreshLabel = getLastRefreshLabel(t, lastRefreshedAt, now)
 
   const rootLoaded = Object.prototype.hasOwnProperty.call(rowsByPath, '/')
   const rootRows = rowsByPath['/'] ?? []
@@ -615,22 +687,6 @@ export function TreePanel() {
           <button type="button" onClick={() => void loadRoot()}>
             {t('tree.loadRoot')}
           </button>
-          <button
-            type="button"
-            aria-label={t('tree.refreshTree')}
-            aria-busy={refreshingTree}
-            className={[
-              'tool-button',
-              refreshingTree ? 'tool-button--loading' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            disabled={refreshingTree}
-            onClick={() => void refreshTree()}
-          >
-            <RefreshIcon spinning={refreshingTree} />
-            <span>{t('tree.refreshTree')}</span>
-          </button>
         </div>
       </div>
       <div className="panel__body tree-panel__body">
@@ -647,7 +703,44 @@ export function TreePanel() {
           ) : null}
 
           <div className="tree-grid__header" role="presentation">
-            <span role="columnheader">{t('tree.columnNode')}</span>
+            <div
+              className="tree-grid__header-cell"
+              role="columnheader"
+              aria-label={t('tree.columnNode')}
+            >
+              <span className="tree-grid__header-title" aria-hidden="true">
+                {t('tree.columnNode')}
+              </span>
+              <div className="tree-grid__header-meta">
+                <span
+                  className="tree-grid__last-refresh"
+                  aria-hidden="true"
+                  title={
+                    lastRefreshedAt == null
+                      ? ''
+                      : new Date(lastRefreshedAt).toLocaleString()
+                  }
+                >
+                  {lastRefreshLabel}
+                </span>
+                <button
+                  type="button"
+                  aria-label={t('tree.refreshTree')}
+                  aria-busy={refreshingTree}
+                  className={[
+                    'tree-grid__refresh',
+                    refreshingTree ? 'tree-grid__refresh--loading' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  disabled={refreshingTree}
+                  onClick={() => void refreshTree()}
+                  title={t('tree.refreshTree')}
+                >
+                  <RefreshIcon spinning={refreshingTree} />
+                </button>
+              </div>
+            </div>
             <span role="columnheader">{t('tree.columnSize')}</span>
             <span role="columnheader">{t('tree.columnUpdated')}</span>
             <span aria-hidden="true" className="tree-grid__action-header" />

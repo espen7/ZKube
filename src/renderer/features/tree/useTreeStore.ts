@@ -16,6 +16,7 @@ type TreeState = {
   searchResults: string[]
   feedback: string | null
   refreshingTree: boolean
+  lastRefreshedAt: number | null
 }
 
 const initialState: TreeState = {
@@ -27,6 +28,7 @@ const initialState: TreeState = {
   searchResults: [],
   feedback: null,
   refreshingTree: false,
+  lastRefreshedAt: null,
 }
 
 const listeners = new Set<() => void>()
@@ -292,6 +294,7 @@ async function loadChildren(path: string) {
       expandedPaths: nextExpandedPaths,
       feedback: null,
       loadingPaths: state.loadingPaths.filter((entry) => entry !== path),
+      lastRefreshedAt: path === '/' ? Date.now() : state.lastRefreshedAt,
     })
   } catch (error) {
     if (!isCurrentLoad(path, requestId)) {
@@ -380,10 +383,12 @@ async function refreshTree() {
     return
   }
 
+  const MIN_SPIN_MS = 1000
   const expandedSet = new Set(state.expandedPaths)
   const nextRowsByPath: Record<string, TreeNodeRow[]> = {}
   const nextExpandedPaths: string[] = []
 
+  const startedAt = performance.now()
   setState({ refreshingTree: true, feedback: null })
 
   try {
@@ -447,8 +452,14 @@ async function refreshTree() {
       rowsByPath: nextRowsByPath,
       expandedPaths: nextExpandedPaths,
       feedback: null,
+      lastRefreshedAt: Date.now(),
     })
   } finally {
+    const elapsed = performance.now() - startedAt
+    const remaining = MIN_SPIN_MS - elapsed
+    if (remaining > 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, remaining))
+    }
     setState({ refreshingTree: false })
   }
 }
