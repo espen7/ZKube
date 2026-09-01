@@ -98,6 +98,7 @@ describe('node workbench', () => {
         numChildren: 2,
         mtime: 1_715_000_000_000,
         dataLength: 16,
+        isEphemeral: false,
       },
       acl: [],
     })
@@ -310,6 +311,7 @@ describe('node workbench', () => {
         numChildren: 2,
         mtime: 1_715_000_000_000,
         dataLength: 16,
+        isEphemeral: false,
       },
       acl: [
         {
@@ -527,6 +529,7 @@ describe('node workbench', () => {
         numChildren: 3,
         mtime: 1_715_200_000_000,
         dataLength: 23,
+        isEphemeral: false,
       },
       acl: [],
     })
@@ -565,6 +568,7 @@ describe('node workbench', () => {
             hasChildren: true,
             dataLength: 0,
             mtime: Date.now() - 60_000,
+            isEphemeral: false,
           },
         ]
       }
@@ -577,6 +581,7 @@ describe('node workbench', () => {
             hasChildren: true,
             dataLength: 0,
             mtime: Date.now() - 60_000,
+            isEphemeral: false,
           },
         ]
       }
@@ -589,6 +594,7 @@ describe('node workbench', () => {
             hasChildren: false,
             dataLength: 10,
             mtime: Date.now() - 60_000,
+            isEphemeral: false,
           },
         ]
       }
@@ -667,6 +673,7 @@ describe('node workbench', () => {
             hasChildren: true,
             dataLength: 0,
             mtime: Date.now() - 60_000,
+            isEphemeral: false,
           },
         ]
       }
@@ -679,6 +686,7 @@ describe('node workbench', () => {
             hasChildren: true,
             dataLength: 0,
             mtime: Date.now() - 60_000,
+            isEphemeral: false,
           },
         ]
       }
@@ -691,6 +699,7 @@ describe('node workbench', () => {
             hasChildren: false,
             dataLength: 10,
             mtime: Date.now() - 60_000,
+            isEphemeral: false,
           },
         ]
       }
@@ -791,6 +800,7 @@ describe('node workbench', () => {
             hasChildren: true,
             dataLength: 0,
             mtime: Date.now() - 60_000,
+            isEphemeral: false,
           },
         ]
       }
@@ -803,6 +813,7 @@ describe('node workbench', () => {
             hasChildren: true,
             dataLength: 0,
             mtime: Date.now() - 60_000,
+            isEphemeral: false,
           },
         ]
       }
@@ -862,6 +873,7 @@ describe('node workbench', () => {
         numChildren: 2,
         mtime: 1_715_200_100_000,
         dataLength: 19,
+        isEphemeral: false,
       },
       acl: [],
     })
@@ -937,6 +949,7 @@ describe('node workbench', () => {
           numChildren: 1,
           mtime: 1_715_100_000_000,
           dataLength: 19,
+          isEphemeral: false,
         },
         acl: [],
       })

@@ -215,6 +215,7 @@ describe('NodeZkClient', () => {
         numChildren: 2,
         mtime: 1_700_000_800_000,
         dataLength: 12,
+        isEphemeral: false,
       },
       acl: [
         {
@@ -236,6 +237,7 @@ describe('NodeZkClient', () => {
         hasChildren: true,
         dataLength: 9,
         mtime: 1_700_000_800_000,
+        isEphemeral: false,
       },
       {
         path: '/config',
@@ -243,6 +245,7 @@ describe('NodeZkClient', () => {
         hasChildren: true,
         dataLength: 12,
         mtime: 1_700_000_800_000,
+        isEphemeral: false,
       },
     ])
   })
@@ -415,6 +418,7 @@ describe('NodeZkClient', () => {
         hasChildren: false,
         dataLength: null,
         mtime: null,
+        isEphemeral: false,
       },
       {
         path: '/healthy',
@@ -422,6 +426,7 @@ describe('NodeZkClient', () => {
         hasChildren: false,
         dataLength: 13,
         mtime: 1_700_000_900_000,
+        isEphemeral: false,
       },
     ])
   })

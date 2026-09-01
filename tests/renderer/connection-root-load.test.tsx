@@ -26,6 +26,7 @@ describe('connected session root loading', () => {
       hasChildren: false,
       dataLength: 12,
       mtime: Date.now() - 5_000,
+      isEphemeral: false,
     },
     {
       path: '/services',
@@ -33,6 +34,7 @@ describe('connected session root loading', () => {
       hasChildren: true,
       dataLength: 24,
       mtime: Date.now() - 9_000,
+      isEphemeral: false,
     },
   ]
 

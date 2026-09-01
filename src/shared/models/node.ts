@@ -3,6 +3,7 @@ export type NodeStat = {
   numChildren: number
   mtime: number | null
   dataLength: number | null
+  isEphemeral: boolean
 }
 
 export type TreeNodeRow = {
@@ -11,6 +12,7 @@ export type TreeNodeRow = {
   hasChildren: boolean
   dataLength: number | null
   mtime: number | null
+  isEphemeral: boolean
 }
 
 export type ZooKeeperServerState =

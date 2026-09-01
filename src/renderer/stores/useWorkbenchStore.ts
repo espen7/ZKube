@@ -44,6 +44,7 @@ const defaultStat = {
   numChildren: 0,
   mtime: null,
   dataLength: null,
+  isEphemeral: false,
 }
 
 const encoder = new TextEncoder()

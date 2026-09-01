@@ -24,6 +24,7 @@ type NodeZkStat = {
   numChildren: number
   mtime?: number | null | Buffer | Uint8Array
   dataLength?: number | null
+  ephemeralOwner?: number | null | bigint | Buffer | Uint8Array | { toNumber(): number; toString(): string }
 }
 
 type NodeZkAclRecord = {
@@ -319,6 +320,7 @@ export class NodeZkClient implements ZooKeeperClient {
             hasChildren: (stat?.numChildren ?? 0) > 0,
             dataLength: data.length,
             mtime: stat?.mtime ?? null,
+            isEphemeral: stat?.isEphemeral ?? false,
           } satisfies TreeNodeRow
         } catch {
           return {
@@ -327,6 +329,7 @@ export class NodeZkClient implements ZooKeeperClient {
             hasChildren: false,
             dataLength: null,
             mtime: null,
+            isEphemeral: false,
           } satisfies TreeNodeRow
         }
       }),
@@ -373,6 +376,7 @@ export class NodeZkClient implements ZooKeeperClient {
             numChildren: stat?.numChildren ?? 0,
             mtime: normalizeStatTimestamp(stat?.mtime),
             dataLength: stat?.dataLength ?? (data?.length ?? 0),
+            isEphemeral: isStatEphemeral(stat?.ephemeralOwner),
           },
         })
       })
@@ -672,6 +676,47 @@ function normalizeStatTimestamp(
 
   const decoded = Number(buffer.readBigInt64BE(0))
   return Number.isFinite(decoded) ? decoded : null
+}
+
+function isStatEphemeral(
+  ephemeralOwner: NodeZkStat['ephemeralOwner'],
+): boolean {
+  if (ephemeralOwner === null || ephemeralOwner === undefined) {
+    return false
+  }
+
+  if (typeof ephemeralOwner === 'number') {
+    return ephemeralOwner !== 0
+  }
+
+  if (typeof ephemeralOwner === 'bigint') {
+    return ephemeralOwner !== 0n
+  }
+
+  if (
+    typeof ephemeralOwner === 'object' &&
+    ephemeralOwner !== null &&
+    'toNumber' in ephemeralOwner &&
+    typeof ephemeralOwner.toNumber === 'function'
+  ) {
+    try {
+      return ephemeralOwner.toNumber() !== 0
+    } catch {
+      return String(ephemeralOwner.toString()) !== '0'
+    }
+  }
+
+  if (Buffer.isBuffer(ephemeralOwner) || ephemeralOwner instanceof Uint8Array) {
+    const buffer = Buffer.isBuffer(ephemeralOwner)
+      ? ephemeralOwner
+      : Buffer.from(ephemeralOwner)
+    if (buffer.length < 8) {
+      return false
+    }
+    return buffer.readBigInt64BE(0) !== 0n
+  }
+
+  return false
 }
 
 function parseHostCandidates(hosts: string): Array<{ host: string; port: number }> {

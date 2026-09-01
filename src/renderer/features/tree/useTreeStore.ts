@@ -15,6 +15,7 @@ type TreeState = {
   query: string
   searchResults: string[]
   feedback: string | null
+  refreshingTree: boolean
 }
 
 const initialState: TreeState = {
@@ -25,6 +26,7 @@ const initialState: TreeState = {
   query: '',
   searchResults: [],
   feedback: null,
+  refreshingTree: false,
 }
 
 const listeners = new Set<() => void>()
@@ -374,71 +376,81 @@ async function refreshTree() {
     return
   }
 
+  if (state.refreshingTree) {
+    return
+  }
+
   const expandedSet = new Set(state.expandedPaths)
   const nextRowsByPath: Record<string, TreeNodeRow[]> = {}
   const nextExpandedPaths: string[] = []
 
-  async function fetchBranch(path: string): Promise<TreeNodeRow[] | null> {
-    const requestId = beginLoad(path)
+  setState({ refreshingTree: true, feedback: null })
 
-    try {
-      const rows = await window.zkube.zookeeper.loadChildren(path)
-      if (!isCurrentLoad(path, requestId)) {
+  try {
+    async function fetchBranch(path: string): Promise<TreeNodeRow[] | null> {
+      const requestId = beginLoad(path)
+
+      try {
+        const rows = await window.zkube.zookeeper.loadChildren(path)
+        if (!isCurrentLoad(path, requestId)) {
+          return null
+        }
+
+        completeLoad(path, requestId)
+        setState({
+          loadingPaths: state.loadingPaths.filter((entry) => entry !== path),
+        })
+        return rows
+      } catch (error) {
+        if (!isCurrentLoad(path, requestId)) {
+          return null
+        }
+
+        completeLoad(path, requestId)
+        setState({
+          feedback: getErrorMessage(error),
+          loadingPaths: state.loadingPaths.filter((entry) => entry !== path),
+        })
         return null
       }
-
-      completeLoad(path, requestId)
-      setState({
-        loadingPaths: state.loadingPaths.filter((entry) => entry !== path),
-      })
-      return rows
-    } catch (error) {
-      if (!isCurrentLoad(path, requestId)) {
-        return null
-      }
-
-      completeLoad(path, requestId)
-      setState({
-        feedback: getErrorMessage(error),
-        loadingPaths: state.loadingPaths.filter((entry) => entry !== path),
-      })
-      return null
     }
-  }
 
-  async function reloadExpandedBranches(rows: TreeNodeRow[]) {
-    for (const row of rows) {
-      if (!expandedSet.has(row.path)) {
-        continue
+    async function reloadExpandedBranches(rows: TreeNodeRow[]) {
+      for (const row of rows) {
+        if (!expandedSet.has(row.path)) {
+          continue
+        }
+
+        nextExpandedPaths.push(row.path)
+        const childRows = await fetchBranch(row.path)
+        if (!childRows) {
+          continue
+        }
+
+        nextRowsByPath[row.path] = childRows
+        await reloadExpandedBranches(childRows)
       }
-
-      nextExpandedPaths.push(row.path)
-      const childRows = await fetchBranch(row.path)
-      if (!childRows) {
-        continue
-      }
-
-      nextRowsByPath[row.path] = childRows
-      await reloadExpandedBranches(childRows)
     }
-  }
 
-  const rootRows = await fetchBranch('/')
-  if (!rootRows) {
-    return
-  }
+    const rootRows = await fetchBranch('/')
+    if (!rootRows) {
+      return
+    }
 
-  nextRowsByPath['/'] = rootRows
-  if (expandedSet.has('/')) {
-    nextExpandedPaths.push('/')
-  }
-  await reloadExpandedBranches(rootRows)
+    nextRowsByPath['/'] = rootRows
+    if (expandedSet.has('/')) {
+      nextExpandedPaths.push('/')
+    }
+    await reloadExpandedBranches(rootRows)
 
-  setState({
-    rowsByPath: nextRowsByPath,
-    expandedPaths: nextExpandedPaths,
-    feedback: null,
-  })
+    setState({
+      rowsByPath: nextRowsByPath,
+      expandedPaths: nextExpandedPaths,
+      feedback: null,
+    })
+  } finally {
+    setState({ refreshingTree: false })
+  }
 }
 
 async function toggleNode(path: string) {

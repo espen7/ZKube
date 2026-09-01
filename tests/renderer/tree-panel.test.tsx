@@ -17,6 +17,7 @@ function createRow(
     hasChildren: false,
     dataLength: 0,
     mtime: Date.now() - 60_000,
+    isEphemeral: false,
     ...options,
   }
 }
@@ -72,6 +73,7 @@ describe('Tree panel', () => {
           numChildren: number
           mtime: number | null
           dataLength: number | null
+          isEphemeral: boolean
         }
         acl: []
       }>
@@ -127,6 +129,7 @@ describe('Tree panel', () => {
         numChildren: number
         mtime: number | null
         dataLength: number | null
+        isEphemeral: boolean
       }
       acl: []
     }>>().mockImplementation(async (path: string) => ({
@@ -137,6 +140,7 @@ describe('Tree panel', () => {
         numChildren: 0,
         mtime: Date.now() - 30_000,
         dataLength: `opened:${path}`.length,
+        isEphemeral: false,
       },
       acl: [],
     }))

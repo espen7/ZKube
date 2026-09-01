@@ -24,6 +24,7 @@ class FakeClient {
           hasChildren: false,
           dataLength: 10,
           mtime: 1_700_000_000_000,
+          isEphemeral: false,
         },
         {
           path: '/config',
@@ -31,6 +32,7 @@ class FakeClient {
           hasChildren: false,
           dataLength: 20,
           mtime: 1_700_000_100_000,
+          isEphemeral: false,
         },
         {
           path: '/a',
@@ -38,6 +40,7 @@ class FakeClient {
           hasChildren: true,
           dataLength: 0,
           mtime: 1_700_000_200_000,
+          isEphemeral: false,
         },
       ],
     ],
@@ -50,6 +53,7 @@ class FakeClient {
           hasChildren: true,
           dataLength: 11,
           mtime: 1_700_000_300_000,
+          isEphemeral: false,
         },
       ],
     ],
@@ -62,6 +66,7 @@ class FakeClient {
           hasChildren: false,
           dataLength: 12,
           mtime: 1_700_000_400_000,
+          isEphemeral: false,
         },
       ],
     ],
@@ -109,6 +114,7 @@ class FakeClient {
         numChildren: 0,
         mtime: 1_700_000_700_000,
         dataLength: `data:${path}`.length,
+        isEphemeral: false,
       },
       acl: [],
     }
@@ -253,6 +259,7 @@ describe('SessionManager', () => {
         hasChildren: false,
         dataLength: 13,
         mtime: 1_700_000_500_000,
+        isEphemeral: false,
       },
     ])
     client.children.set('/a/b', [
@@ -262,6 +269,7 @@ describe('SessionManager', () => {
         hasChildren: false,
         dataLength: 14,
         mtime: 1_700_000_600_000,
+        isEphemeral: false,
       },
     ])
 

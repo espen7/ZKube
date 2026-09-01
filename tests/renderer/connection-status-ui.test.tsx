@@ -36,6 +36,7 @@ const rootRows: TreeNodeRow[] = [
     hasChildren: true,
     dataLength: 128,
     mtime: Date.now() - 60_000,
+    isEphemeral: false,
   },
 ]
 

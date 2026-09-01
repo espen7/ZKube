@@ -9,6 +9,7 @@ type NodeInspectorProps = {
         numChildren: number
         mtime: number | null
         dataLength: number | null
+        isEphemeral: boolean
       }
     | null
 }
@@ -54,6 +55,21 @@ export function NodeInspector({ path, stat }: NodeInspectorProps) {
 
               <dt>{t('inspector.mtime')}</dt>
               <dd>{formatAbsoluteTime(stat.mtime)}</dd>
+
+              <dt>{t('inspector.ephemeral')}</dt>
+              <dd>
+                <span
+                  className={
+                    stat.isEphemeral
+                      ? 'inspector-summary__flag inspector-summary__flag--ephemeral'
+                      : 'inspector-summary__flag'
+                  }
+                >
+                  {stat.isEphemeral
+                    ? t('inspector.ephemeralYes')
+                    : t('inspector.ephemeralNo')}
+                </span>
+              </dd>
             </dl>
           </section>
         )}

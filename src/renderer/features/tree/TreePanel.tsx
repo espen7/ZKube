@@ -102,6 +102,20 @@ function DeleteIcon() {
   )
 }
 
+function RefreshIcon({ spinning = false }: { spinning?: boolean }) {
+  return (
+    <LucideIcon
+      name="refresh-cw"
+      className={spinning ? 'lucide-icon--spin' : undefined}
+    >
+      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+      <path d="M21 3v5h-5" />
+      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+      <path d="M3 21v-5h5" />
+    </LucideIcon>
+  )
+}
+
 function TreeBranch({
   row,
   depth,
@@ -200,11 +214,21 @@ function TreeBranch({
             ) : (
               <FileIcon />
             )}
+            {row.isEphemeral ? (
+              <span
+                aria-label={t('tree.ephemeralLabel')}
+                className="tree-row__ephemeral-badge"
+                title={t('tree.ephemeralTooltip')}
+              >
+                E
+              </span>
+            ) : null}
           </span>
           <span
             className={[
               'tree-row__open',
               isRootRow ? 'tree-row__open--root' : '',
+              row.isEphemeral ? 'tree-row__open--ephemeral' : '',
             ]
               .filter(Boolean)
               .join(' ')}
@@ -392,6 +416,7 @@ export function TreePanel() {
     query,
     searchResults,
     feedback,
+    refreshingTree,
     loadRoot,
     refreshTree,
     toggleNode,
@@ -421,6 +446,7 @@ export function TreePanel() {
     hasChildren: rootRows.length > 0,
     dataLength: null,
     mtime: null,
+    isEphemeral: false,
   }
   const rootVisible = !query
     ? rootRows
@@ -589,8 +615,21 @@ export function TreePanel() {
           <button type="button" onClick={() => void loadRoot()}>
             {t('tree.loadRoot')}
           </button>
-          <button type="button" onClick={() => void refreshTree()}>
-            {t('tree.refreshTree')}
+          <button
+            type="button"
+            aria-label={t('tree.refreshTree')}
+            aria-busy={refreshingTree}
+            className={[
+              'tool-button',
+              refreshingTree ? 'tool-button--loading' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            disabled={refreshingTree}
+            onClick={() => void refreshTree()}
+          >
+            <RefreshIcon spinning={refreshingTree} />
+            <span>{t('tree.refreshTree')}</span>
           </button>
         </div>
       </div>
