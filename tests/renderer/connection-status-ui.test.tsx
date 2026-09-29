@@ -175,27 +175,27 @@ describe('connection status ui', () => {
     expect(within(statusBar).getByText('1076090343')).toBeInTheDocument()
     expect(within(statusBar).getByTestId('status-overview-connections')).toHaveAttribute(
       'data-icon',
-      'lucide-plug-zap',
+      'sym-link',
     )
     expect(within(statusBar).getByTestId('status-overview-role')).toHaveAttribute(
       'data-icon',
-      'lucide-badge-info',
+      'sym-dns',
     )
     expect(within(statusBar).getByTestId('status-overview-latency')).toHaveAttribute(
       'data-icon',
-      'lucide-gauge',
+      'sym-speed',
     )
     expect(within(statusBar).getByTestId('status-overview-znodes')).toHaveAttribute(
       'data-icon',
-      'lucide-network',
+      'sym-account_tree',
     )
     expect(within(statusBar).getByTestId('status-overview-packets-tx')).toHaveAttribute(
       'data-icon',
-      'lucide-arrow-up-from-line',
+      'sym-upload',
     )
     expect(within(statusBar).getByTestId('status-overview-packets-rx')).toHaveAttribute(
       'data-icon',
-      'lucide-arrow-down-to-line',
+      'sym-download',
     )
     expect(
       within(statusBar)

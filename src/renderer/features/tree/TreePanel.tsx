@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 
-import { LucideIcon } from '../../components/LucideIcon'
+import { MaterialSymbol } from '../../components/MaterialSymbol'
 import type {
   NodeMarkColor,
   TreeNodeRow,
@@ -63,57 +63,23 @@ function shouldRenderPath(
 }
 
 function FolderIcon() {
-  return (
-    <LucideIcon name="folder">
-      <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-8l-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z" />
-    </LucideIcon>
-  )
+  return <MaterialSymbol name="folder" size={16} />
 }
 
 function RootIcon() {
-  return (
-    <LucideIcon name="hard-drive">
-      <line x1="22" x2="2" y1="12" y2="12" />
-      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z" />
-      <line x1="6" x2="6.01" y1="16" y2="16" />
-      <line x1="10" x2="10.01" y1="16" y2="16" />
-    </LucideIcon>
-  )
+  return <MaterialSymbol name="storage" size={16} />
 }
 
 function FileIcon() {
-  return (
-    <LucideIcon name="file">
-      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-      <path d="M14 2v4a2 2 0 0 0 2 2h4" />
-    </LucideIcon>
-  )
+  return <MaterialSymbol name="draft" size={16} />
 }
 
 function DeleteIcon() {
-  return (
-    <LucideIcon name="trash-2">
-      <path d="M3 6h18" />
-      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-    </LucideIcon>
-  )
+  return <MaterialSymbol name="delete" size={16} />
 }
 
 function RefreshIcon({ spinning = false }: { spinning?: boolean }) {
-  return (
-    <LucideIcon
-      name="refresh-cw"
-      className={spinning ? 'lucide-icon--spin' : undefined}
-    >
-      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-      <path d="M21 3v5h-5" />
-      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-      <path d="M3 21v-5h5" />
-    </LucideIcon>
-  )
+  return <MaterialSymbol name="refresh" size={16} className={spinning ? 'icon--spin' : undefined} />
 }
 
 function TreeBranch({

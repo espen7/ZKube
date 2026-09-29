@@ -1,7 +1,5 @@
-import type { ReactNode } from 'react'
-
 import type { ConnectionState, ZooKeeperOverview } from '../../../shared/models/node'
-import { LucideIcon } from '../../components/LucideIcon'
+import { MaterialSymbol } from '../../components/MaterialSymbol'
 import { useI18n } from '../../use-i18n'
 import { ConnectionStateBadge } from './ConnectionStateBadge'
 
@@ -16,7 +14,6 @@ type StatusBarProps = {
 
 type OverviewMetricProps = {
   description?: string
-  icon: ReactNode
   iconName: string
   label: string
   testId: string
@@ -24,7 +21,6 @@ type OverviewMetricProps = {
 }
 
 type OverviewMetricDefinition = {
-  icon: ReactNode
   iconName: string
   key: string
   label: string
@@ -46,73 +42,8 @@ function formatLatency(value: number | null): string | null {
   return `${rounded}ms`
 }
 
-function ConnectionsIcon() {
-  return (
-    <LucideIcon name="plug-zap">
-      <path d="M6 9v6" />
-      <path d="M18 9v6" />
-      <path d="M12 3v6" />
-      <path d="M9 12h6" />
-      <path d="M8 15a4 4 0 1 0 8 0V9H8z" />
-    </LucideIcon>
-  )
-}
-
-function RoleIcon() {
-  return (
-    <LucideIcon name="badge-info">
-      <path d="M12 16v-4" />
-      <path d="M12 8h.01" />
-      <path d="M7 4h10l3 3v10l-3 3H7l-3-3V7z" />
-    </LucideIcon>
-  )
-}
-
-function LatencyIcon() {
-  return (
-    <LucideIcon name="gauge">
-      <path d="m12 14 4-4" />
-      <path d="M3.34 19a10 10 0 1 1 17.32 0" />
-      <path d="M12 19v-1" />
-    </LucideIcon>
-  )
-}
-
-function ZnodesIcon() {
-  return (
-    <LucideIcon name="network">
-      <rect x="9" y="2" width="6" height="6" rx="1" />
-      <rect x="2" y="16" width="6" height="6" rx="1" />
-      <rect x="16" y="16" width="6" height="6" rx="1" />
-      <path d="M12 8v4" />
-      <path d="M5 16v-2a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v2" />
-    </LucideIcon>
-  )
-}
-
-function PacketsTxIcon() {
-  return (
-    <LucideIcon name="arrow-up-from-line">
-      <path d="M12 19V5" />
-      <path d="m6 11 6-6 6 6" />
-      <path d="M5 21h14" />
-    </LucideIcon>
-  )
-}
-
-function PacketsRxIcon() {
-  return (
-    <LucideIcon name="arrow-down-to-line">
-      <path d="M12 5v14" />
-      <path d="m18 13-6 6-6-6" />
-      <path d="M5 21h14" />
-    </LucideIcon>
-  )
-}
-
 function OverviewMetric({
   description,
-  icon,
   iconName,
   label,
   testId,
@@ -128,10 +59,10 @@ function OverviewMetric({
     >
       <span
         className="status-bar__overview-icon"
-        data-icon={`lucide-${iconName}`}
+        data-icon={`sym-${iconName}`}
         data-testid={testId}
       >
-        {icon}
+        <MaterialSymbol name={iconName} size={16} />
       </span>
       <span className="status-bar__overview-value">{value}</span>
     </span>
@@ -145,7 +76,6 @@ function getOverviewMetrics(
   if (!overview?.available) {
     return [] as Array<{
       description?: string
-      icon: ReactNode
       iconName: string
       key: string
       label: string
@@ -160,8 +90,7 @@ function getOverviewMetrics(
       label: t('workbench.overviewConnections'),
       description: t('workbench.overviewConnectionsDescription'),
       value: formatCount(overview.numAliveConnections),
-      icon: <ConnectionsIcon />,
-      iconName: 'plug-zap',
+      iconName: 'link',
       testId: 'status-overview-connections',
     },
     {
@@ -172,8 +101,7 @@ function getOverviewMetrics(
         overview.serverState === 'unknown'
           ? t('workbench.overviewUnknown')
           : overview.serverState,
-      icon: <RoleIcon />,
-      iconName: 'badge-info',
+      iconName: 'dns',
       testId: 'status-overview-role',
     },
     {
@@ -181,8 +109,7 @@ function getOverviewMetrics(
       label: t('workbench.overviewLatency'),
       description: t('workbench.overviewLatencyDescription'),
       value: formatLatency(overview.avgLatency),
-      icon: <LatencyIcon />,
-      iconName: 'gauge',
+      iconName: 'speed',
       testId: 'status-overview-latency',
     },
     {
@@ -190,8 +117,7 @@ function getOverviewMetrics(
       label: t('workbench.overviewZnodes'),
       description: t('workbench.overviewZnodesDescription'),
       value: formatCount(overview.znodeCount),
-      icon: <ZnodesIcon />,
-      iconName: 'network',
+      iconName: 'account_tree',
       testId: 'status-overview-znodes',
     },
     {
@@ -199,8 +125,7 @@ function getOverviewMetrics(
       label: t('workbench.overviewPacketsTx'),
       description: t('workbench.overviewPacketsTxDescription'),
       value: formatCount(overview.packetsSent),
-      icon: <PacketsTxIcon />,
-      iconName: 'arrow-up-from-line',
+      iconName: 'upload',
       testId: 'status-overview-packets-tx',
     },
     {
@@ -208,8 +133,7 @@ function getOverviewMetrics(
       label: t('workbench.overviewPacketsRx'),
       description: t('workbench.overviewPacketsRxDescription'),
       value: formatCount(overview.packetsReceived),
-      icon: <PacketsRxIcon />,
-      iconName: 'arrow-down-to-line',
+      iconName: 'download',
       testId: 'status-overview-packets-rx',
     },
   ]
@@ -217,7 +141,6 @@ function getOverviewMetrics(
   return metrics.reduce<
     Array<{
       description?: string
-      icon: ReactNode
       iconName: string
       key: string
       label: string
@@ -277,7 +200,6 @@ export function StatusBar({
             <OverviewMetric
               key={metric.key}
               description={metric.description}
-              icon={metric.icon}
               iconName={metric.iconName}
               label={metric.label}
               testId={metric.testId}

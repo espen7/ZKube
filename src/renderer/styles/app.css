@@ -245,6 +245,8 @@ button {
 
 .tool-rail__icon {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 18px;
   height: 18px;
 }
@@ -323,7 +325,7 @@ button {
   flex: 0 0 auto;
 }
 
-@keyframes lucide-icon-spin {
+@keyframes icon-spin {
   from {
     transform: rotate(0deg);
   }
@@ -332,8 +334,8 @@ button {
   }
 }
 
-.lucide-icon--spin {
-  animation: lucide-icon-spin 900ms linear infinite;
+.icon--spin {
+  animation: icon-spin 900ms linear infinite;
   transform-origin: 50% 50%;
 }
 
@@ -564,6 +566,8 @@ button {
 .tree-row__icon {
   position: relative;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 16px;
   height: 16px;
   color: var(--text-muted);

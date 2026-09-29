@@ -79,40 +79,40 @@ describe('navigation workspace layout', () => {
     const createButton = within(toolRail).getByRole('button', {
       name: /create connection/i,
     })
-    const createIcon = createButton.querySelector('svg')
+    const createIcon = createButton.querySelector('[data-icon]')
 
     expect(createIcon).not.toBeNull()
-    expect(createIcon).toHaveAttribute('data-icon', 'lucide-square-plus')
+    expect(createIcon).toHaveAttribute('data-icon', 'sym-add_box')
     expect(createButton).not.toHaveTextContent(/^N$/)
     expect(
       within(toolRail)
         .getByRole('button', { name: /open settings/i })
-        .querySelector('svg'),
-    ).toHaveAttribute('data-icon', 'lucide-settings-2')
+        .querySelector('[data-icon]'),
+    ).toHaveAttribute('data-icon', 'sym-settings')
     expect(
       within(toolRail).getByRole('button', { name: /open settings/i }),
     ).toBeInTheDocument()
     expect(
       within(toolRail)
         .getByRole('button', { name: /import connections/i })
-        .querySelector('svg'),
-    ).toHaveAttribute('data-icon', 'lucide-import')
+        .querySelector('[data-icon]'),
+    ).toHaveAttribute('data-icon', 'sym-download')
     expect(
       within(toolRail).getByRole('button', { name: /import connections/i }),
     ).toBeInTheDocument()
     expect(
       within(toolRail)
         .getByRole('button', { name: /export connections/i })
-        .querySelector('svg'),
-    ).toHaveAttribute('data-icon', 'lucide-export')
+        .querySelector('[data-icon]'),
+    ).toHaveAttribute('data-icon', 'sym-upload')
     expect(
       within(toolRail).getByRole('button', { name: /export connections/i }),
     ).toBeInTheDocument()
     expect(
       within(toolRail)
         .getByRole('button', { name: /about zkube/i })
-        .querySelector('svg'),
-    ).toHaveAttribute('data-icon', 'lucide-info')
+        .querySelector('[data-icon]'),
+    ).toHaveAttribute('data-icon', 'sym-info')
     expect(
       within(toolRail).getByRole('button', { name: /about zkube/i }),
     ).toBeInTheDocument()

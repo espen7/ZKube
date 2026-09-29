@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
-import { LucideIcon } from '../../components/LucideIcon'
+import { MaterialSymbol } from '../../components/MaterialSymbol'
 import { useConnectionsStore } from '../connections/useConnectionsStore'
 import { useI18n } from '../../use-i18n'
 
@@ -32,63 +32,27 @@ function RailButton({
 }
 
 function AddIcon() {
-  return (
-    <LucideIcon name="square-plus">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <path d="M12 8v8" />
-      <path d="M8 12h8" />
-    </LucideIcon>
-  )
+  return <MaterialSymbol name="add_box" size={18} />
 }
 
 function SettingsIcon() {
-  return (
-    <LucideIcon name="settings-2">
-      <path d="M20 7h-9" />
-      <path d="M14 17H5" />
-      <circle cx="17" cy="17" r="3" />
-      <circle cx="7" cy="7" r="3" />
-    </LucideIcon>
-  )
+  return <MaterialSymbol name="settings" size={18} />
 }
 
 function ImportIcon() {
-  return (
-    <LucideIcon name="import">
-      <path d="M12 3v12" />
-      <path d="m8 11 4 4 4-4" />
-      <path d="M20 21H4" />
-    </LucideIcon>
-  )
+  return <MaterialSymbol name="download" size={18} />
 }
 
 function ExportIcon() {
-  return (
-    <LucideIcon name="export">
-      <path d="M12 21V9" />
-      <path d="m8 13 4-4 4 4" />
-      <path d="M20 3H4" />
-    </LucideIcon>
-  )
+  return <MaterialSymbol name="upload" size={18} />
 }
 
 function AboutIcon() {
-  return (
-    <LucideIcon name="info">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M12 16v-4" />
-      <path d="M12 8h.01" />
-    </LucideIcon>
-  )
+  return <MaterialSymbol name="info" size={18} />
 }
 
 function PanelLeftIcon() {
-  return (
-    <LucideIcon name="panel-left">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <path d="M9 3v18" />
-    </LucideIcon>
-  )
+  return <MaterialSymbol name="left_panel_open" size={18} />
 }
 
 function BrandGlyph() {
