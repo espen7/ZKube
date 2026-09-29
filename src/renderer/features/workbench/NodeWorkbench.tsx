@@ -155,13 +155,13 @@ export function NodeWorkbench() {
               <h2 className="panel__title">{t('workbench.markedNodes')}</h2>
             </div>
             <div className="panel__actions">
-              <button
-                type="button"
+              <Button
+                size="small"
                 disabled={!activeTab}
                 onClick={() => void handleRefreshNode()}
               >
                 {t('workbench.refreshNode')}
-              </button>
+              </Button>
             </div>
           </div>
           <div className="panel__body panel__body--scroll">

@@ -12,6 +12,6 @@ describe('tree theme tokens', () => {
 
     expect(css).toContain('--tree-row-odd: #ffffff;')
     expect(css).toContain('--tree-row-even: #fbfbfd;')
-    expect(css).toContain('--tree-row-hover: #f0f6ff;')
+    expect(css).toContain('--tree-row-hover: #eef3fd;')
   })
 })

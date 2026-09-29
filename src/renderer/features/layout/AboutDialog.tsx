@@ -14,7 +14,7 @@ function BrandGlyph() {
       />
       <path
         d="M65.5 152c0-47.773 38.727-86.5 86.5-86.5h208c47.773 0 86.5 38.727 86.5 86.5v208c0 47.773-38.727 86.5-86.5 86.5H152c-47.773 0-86.5-38.727-86.5-86.5V152Z"
-        stroke="#24C8A5"
+        stroke="#6495ED"
         strokeOpacity="0.16"
         strokeWidth="3"
       />
@@ -46,8 +46,8 @@ function BrandGlyph() {
           y2="356"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#5EEAD4" />
-          <stop offset="1" stopColor="#24C8A5" />
+          <stop stopColor="#82ADF1" />
+          <stop offset="1" stopColor="#4A7DE0" />
         </linearGradient>
       </defs>
     </svg>

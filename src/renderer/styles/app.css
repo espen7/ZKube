@@ -37,7 +37,8 @@ button {
   cursor: pointer;
 }
 
-input.MuiInputBase-input {
+input.MuiInputBase-input,
+textarea.MuiInputBase-input {
   border: 0;
   background: transparent;
 }
@@ -294,6 +295,11 @@ button.MuiButtonBase-root {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.panel__actions .MuiTextField-root {
+  flex: 1;
+  min-width: 0;
 }
 
 @keyframes icon-spin {
@@ -1248,15 +1254,8 @@ button.MuiButtonBase-root {
   margin-bottom: 14px;
 }
 
-.dialog__field input,
-.dialog__field textarea {
+.dialog__field .MuiTextField-root {
   width: 100%;
-  padding: 11px 12px;
-  border-radius: var(--radius-sm);
-}
-
-.dialog__field textarea {
-  resize: vertical;
 }
 
 .dialog__actions {
@@ -1320,11 +1319,9 @@ button.MuiButtonBase-root {
   align-items: center;
 }
 
-.about-dialog__link-row input {
+.about-dialog__link-row .MuiTextField-root {
   flex: 1;
   min-width: 0;
-  padding: 9px 10px;
-  border-radius: var(--radius-sm);
 }
 
 .settings-shell {
