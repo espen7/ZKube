@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 
+import { Button, Menu, MenuItem, TextField, Tooltip } from '@mui/material'
+
 import { MaterialSymbol } from '../../components/MaterialSymbol'
+import { AppDialog } from '../../components/AppDialog'
 import type {
   NodeMarkColor,
   TreeNodeRow,
@@ -285,21 +288,18 @@ function TreeBranch({
 
 function CreateChildNodeDialog(props: {
   parentPath: string
+  feedback: string | null
   onCancel: () => void
   onSubmit: (childName: string, initialData: string) => Promise<void>
 }) {
   const { t } = useI18n()
-  const { parentPath, onCancel, onSubmit } = props
+  const { parentPath, feedback, onCancel, onSubmit } = props
   const [childName, setChildName] = useState('')
   const [initialData, setInitialData] = useState('')
 
   return (
-    <div className="dialog-backdrop">
+    <AppDialog open ariaLabel="Create child node" onClose={onCancel}>
       <form
-        aria-label="Create child node"
-        aria-modal="true"
-        className="dialog"
-        role="dialog"
         onSubmit={(event) => {
           event.preventDefault()
           void onSubmit(childName, initialData)
@@ -310,9 +310,9 @@ function CreateChildNodeDialog(props: {
 
         <label className="dialog__field">
           <span>{t('tree.childName')}</span>
-          <input
-            aria-label="child node name"
-            type="text"
+          <TextField
+            size="small"
+            slotProps={{ htmlInput: { 'aria-label': 'child node name' } }}
             value={childName}
             onChange={(event) => setChildName(event.target.value)}
           />
@@ -320,24 +320,31 @@ function CreateChildNodeDialog(props: {
 
         <label className="dialog__field">
           <span>{t('tree.initialData')}</span>
-          <textarea
-            aria-label="child node data"
-            rows={5}
+          <TextField
+            multiline
+            minRows={5}
+            slotProps={{ htmlInput: { 'aria-label': 'child node data' } }}
             value={initialData}
             onChange={(event) => setInitialData(event.target.value)}
           />
         </label>
 
+        {feedback ? (
+          <p className="dialog__error" role="status">
+            {feedback}
+          </p>
+        ) : null}
+
         <div className="dialog__actions">
-          <button type="button" onClick={onCancel}>
+          <Button type="button" onClick={onCancel}>
             {t('dialog.cancel')}
-          </button>
-          <button className="button-primary" type="submit">
+          </Button>
+          <Button type="submit" variant="contained">
             {t('tree.createChildNode')}
-          </button>
+          </Button>
         </div>
       </form>
-    </div>
+    </AppDialog>
   )
 }
 
@@ -352,13 +359,8 @@ function DeleteNodeDialog(props: {
   const { row, error, onCancel, onDeleteNodeOnly, onDeleteSubtree } = props
 
   return (
-    <div className="dialog-backdrop">
-      <div
-        aria-label="Delete node confirmation"
-        aria-modal="true"
-        className="dialog"
-        role="dialog"
-      >
+    <AppDialog open ariaLabel="Delete node confirmation" onClose={onCancel}>
+      <div className="dialog__body">
         <h3>{t('tree.deleteNode')}</h3>
         <p>{t('tree.deleteNodeDescription', { path: row.path })}</p>
         {row.hasChildren ? (
@@ -371,28 +373,28 @@ function DeleteNodeDialog(props: {
         ) : null}
 
         <div className="dialog__actions">
-          <button type="button" onClick={onCancel}>
+          <Button type="button" onClick={onCancel}>
             {t('dialog.cancel')}
-          </button>
-          <button
-            className="button-danger"
-            type="button"
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
             onClick={() => void onDeleteNodeOnly()}
           >
             {t('tree.deleteNodeOnly')}
-          </button>
+          </Button>
           {row.hasChildren ? (
-            <button
-              className="button-danger"
-              type="button"
+            <Button
+              color="error"
+              variant="contained"
               onClick={() => void onDeleteSubtree()}
             >
               {t('tree.deleteSubtree')}
-            </button>
+            </Button>
           ) : null}
         </div>
       </div>
-    </div>
+    </AppDialog>
   )
 }
 
@@ -524,30 +526,6 @@ export function TreePanel({
   ])
 
   useEffect(() => {
-    if (!contextMenu) {
-      return undefined
-    }
-
-    const handleWindowInteraction = () => {
-      setContextMenu(null)
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setContextMenu(null)
-      }
-    }
-
-    window.addEventListener('click', handleWindowInteraction)
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.removeEventListener('click', handleWindowInteraction)
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [contextMenu])
-
-  useEffect(() => {
     if (!activePath) {
       lastScrolledPathRef.current = null
       return
@@ -651,12 +629,12 @@ export function TreePanel({
           <h2 className="panel__title">{t('panel.nodes')}</h2>
         </div>
         <div className="panel__actions">
-          <button type="button" onClick={() => openNode('/')}>
+          <Button size="small" onClick={() => openNode('/')}>
             {t('tree.openRoot')}
-          </button>
-          <button type="button" onClick={() => void loadRoot()}>
+          </Button>
+          <Button size="small" onClick={() => void loadRoot()}>
             {t('tree.loadRoot')}
-          </button>
+          </Button>
         </div>
       </div>
       <div className="panel__body tree-panel__body">
@@ -693,22 +671,25 @@ export function TreePanel({
                 >
                   {lastRefreshLabel}
                 </span>
-                <button
-                  type="button"
-                  aria-label={t('tree.refreshTree')}
-                  aria-busy={refreshingTree}
-                  className={[
-                    'tree-grid__refresh',
-                    refreshingTree ? 'tree-grid__refresh--loading' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  disabled={refreshingTree}
-                  onClick={() => void refreshTree()}
-                  title={t('tree.refreshTree')}
-                >
-                  <RefreshIcon spinning={refreshingTree} />
-                </button>
+                <Tooltip disableInteractive title={t('tree.refreshTree')}>
+                  <span className="tree-grid__refresh-anchor">
+                    <button
+                      type="button"
+                      aria-label={t('tree.refreshTree')}
+                      aria-busy={refreshingTree}
+                      className={[
+                        'tree-grid__refresh',
+                        refreshingTree ? 'tree-grid__refresh--loading' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      disabled={refreshingTree}
+                      onClick={() => void refreshTree()}
+                    >
+                      <RefreshIcon spinning={refreshingTree} />
+                    </button>
+                  </span>
+                </Tooltip>
               </div>
             </div>
             <span role="columnheader">{t('tree.columnSize')}</span>
@@ -767,77 +748,90 @@ export function TreePanel({
         </div>
       </div>
 
-      {contextMenu ? (
-        <div
-          className="context-menu"
-          role="menu"
-          style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
-        >
-          <button
-            className="context-menu__item"
-            role="menuitem"
-            type="button"
-            onClick={() => {
-              setContextMenu(null)
-              setCreateDialog({ parentPath: contextMenu.row.path })
-            }}
-          >
-            {t('tree.createChildNode')}
-          </button>
-          {contextMenu.row.path !== '/' ? (
-            <button
-              className="context-menu__item"
-              role="menuitem"
-              type="button"
+      <Menu
+        anchorReference="anchorPosition"
+        anchorPosition={
+          contextMenu ? { top: contextMenu.y, left: contextMenu.x } : undefined
+        }
+        anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        open={contextMenu !== null}
+        onClose={() => setContextMenu(null)}
+      >
+        {contextMenu ? (
+          <>
+            <MenuItem
               onClick={() => {
                 setContextMenu(null)
-                setDeleteError(null)
-                setDeleteDialog({ row: contextMenu.row })
+                setCreateDialog({ parentPath: contextMenu.row.path })
               }}
             >
-              {t('tree.deleteNode')}
-            </button>
-          ) : null}
-          <div className="context-menu__mark-row">
-            <span className="context-menu__label">{t('tree.markNode')}</span>
-            <div className="context-menu__swatches" role="group" aria-label={t('tree.markNode')}>
-              {markOptions.map((color) => {
-                const isSelected = marksByPath[contextMenu.row.path] === color
+              {t('tree.createChildNode')}
+            </MenuItem>
+            {contextMenu.row.path !== '/' ? (
+              <MenuItem
+                onClick={() => {
+                  setContextMenu(null)
+                  setDeleteError(null)
+                  setDeleteDialog({ row: contextMenu.row })
+                }}
+              >
+                {t('tree.deleteNode')}
+              </MenuItem>
+            ) : null}
+            <div className="context-menu__mark-row">
+              <span className="context-menu__label">{t('tree.markNode')}</span>
+              <div
+                className="context-menu__swatches"
+                role="group"
+                aria-label={t('tree.markNode')}
+              >
+                {markOptions.map((color) => {
+                  const isSelected =
+                    marksByPath[contextMenu.row.path] === color
 
-                return (
-                  <button
-                    key={color}
-                    aria-label={`${color} node mark`}
-                    aria-pressed={isSelected}
-                    className={[
-                      'context-menu__swatch',
-                      `context-menu__swatch--${color}`,
-                      isSelected ? 'context-menu__swatch--selected' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    role="menuitemradio"
-                    type="button"
-                    onClick={() => {
-                      setContextMenu(null)
-                      if (isSelected) {
-                        void clearNodeMark(activeConnectionId, contextMenu.row.path)
-                        return
-                      }
+                  return (
+                    <MenuItem
+                      key={color}
+                      role="menuitemradio"
+                      selected={isSelected}
+                      aria-label={`${color} node mark`}
+                      className={[
+                        'context-menu__swatch',
+                        `context-menu__swatch--${color}`,
+                        isSelected ? 'context-menu__swatch--selected' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      onClick={() => {
+                        setContextMenu(null)
+                        if (isSelected) {
+                          void clearNodeMark(
+                            activeConnectionId,
+                            contextMenu.row.path,
+                          )
+                          return
+                        }
 
-                      void setNodeMark(activeConnectionId, contextMenu.row.path, color)
-                    }}
-                  />
-                )
-              })}
+                        void setNodeMark(
+                          activeConnectionId,
+                          contextMenu.row.path,
+                          color,
+                        )
+                      }}
+                    />
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </Menu>
 
       {createDialog ? (
         <CreateChildNodeDialog
           parentPath={createDialog.parentPath}
+          feedback={feedback}
           onCancel={() => setCreateDialog(null)}
           onSubmit={handleCreateSubmit}
         />

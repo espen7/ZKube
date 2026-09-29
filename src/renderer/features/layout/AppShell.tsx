@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 
-import { Dialog } from '@mui/material'
+import { Button } from '@mui/material'
 
+import { AppDialog } from '../../components/AppDialog'
 import { ConnectionDialog } from '../connections/ConnectionDialog'
 import { ConnectionSidebar } from '../connections/ConnectionSidebar'
 import { MainHeader } from './MainHeader'
@@ -165,21 +166,19 @@ export function AppShell() {
 
       <ConnectionDialog />
 
-      <Dialog
-        onClose={dismissDisconnectNotice}
+      <AppDialog
         open={disconnectNoticeOpen}
-        slotProps={{ paper: { 'aria-label': t('dialog.connectionLost') } }}
+        ariaLabel={t('dialog.connectionLost')}
+        onClose={dismissDisconnectNotice}
       >
-        <div className="dialog__body">
-          <h3>{t('dialog.connectionLost')}</h3>
-          <p>{t('connection.lostDescription')}</p>
-          <div className="dialog__actions">
-            <button className="button-primary" type="button" onClick={dismissDisconnectNotice}>
-              {t('dialog.ok')}
-            </button>
-          </div>
+        <h3>{t('dialog.connectionLost')}</h3>
+        <p>{t('connection.lostDescription')}</p>
+        <div className="dialog__actions">
+          <Button variant="contained" onClick={dismissDisconnectNotice}>
+            {t('dialog.ok')}
+          </Button>
         </div>
-      </Dialog>
+      </AppDialog>
     </div>
   )
 }

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 
+import { Alert, Button, TextField } from '@mui/material'
+
+import { AppDialog } from '../../components/AppDialog'
 import { useI18n } from '../../use-i18n'
 import { useConnectionsStore } from './useConnectionsStore'
 
@@ -48,14 +51,14 @@ export function ConnectionDialog() {
   }
 
   return (
-    <div className="dialog-backdrop">
+    <AppDialog
+      open
+      ariaLabel={t(
+        isEditing ? 'dialog.editConnection' : 'dialog.createConnection',
+      )}
+      onClose={closeDialog}
+    >
       <form
-        aria-label={t(
-          isEditing ? 'dialog.editConnection' : 'dialog.createConnection',
-        )}
-        aria-modal="true"
-        className="dialog"
-        role="dialog"
         onSubmit={(event) => void handleSubmit(event)}
       >
         <h3>
@@ -71,10 +74,10 @@ export function ConnectionDialog() {
 
         <label className="dialog__field">
           <span>{t('dialog.connectionName')}</span>
-          <input
-            aria-label="connection name"
-            name="name"
+          <TextField
             placeholder={t('dialog.connectionNamePlaceholder')}
+            size="small"
+            slotProps={{ htmlInput: { 'aria-label': 'connection name' } }}
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
@@ -82,10 +85,10 @@ export function ConnectionDialog() {
         </label>
         <label className="dialog__field">
           <span>{t('dialog.hosts')}</span>
-          <input
-            aria-label="connection hosts"
-            name="hosts"
+          <TextField
             placeholder={t('dialog.hostsPlaceholder')}
+            size="small"
+            slotProps={{ htmlInput: { 'aria-label': 'connection hosts' } }}
             type="text"
             value={hosts}
             onChange={(event) => setHosts(event.target.value)}
@@ -93,27 +96,27 @@ export function ConnectionDialog() {
         </label>
         <label className="dialog__field">
           <span>{t('dialog.chroot')}</span>
-          <input
-            aria-label="connection chroot"
-            name="chroot"
+          <TextField
             placeholder={t('dialog.chrootPlaceholder')}
+            size="small"
+            slotProps={{ htmlInput: { 'aria-label': 'connection chroot' } }}
             type="text"
             value={chroot}
             onChange={(event) => setChroot(event.target.value)}
           />
         </label>
 
-        {dialogError ? <div role="alert">{dialogError}</div> : null}
+        {dialogError ? <Alert severity="error">{dialogError}</Alert> : null}
 
         <div className="dialog__actions">
-          <button type="button" onClick={closeDialog}>
+          <Button type="button" onClick={closeDialog}>
             {t('dialog.cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
             aria-label="save connection"
-            className="button-primary"
             disabled={submitting}
             type="submit"
+            variant="contained"
           >
             {submitting
               ? t('dialog.saving')
@@ -122,9 +125,9 @@ export function ConnectionDialog() {
                     ? 'dialog.saveEditedConnection'
                     : 'dialog.saveConnection',
                 )}
-          </button>
+          </Button>
         </div>
       </form>
-    </div>
+    </AppDialog>
   )
 }

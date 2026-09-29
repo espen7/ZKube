@@ -1,3 +1,5 @@
+import { Button, TextField } from '@mui/material'
+
 import { useI18n } from '../../use-i18n'
 
 type TreeSearchBarProps = {
@@ -17,16 +19,16 @@ export function TreeSearchBar({
     <div className="dialog__field">
       <label htmlFor="tree-search-input">{t('tree.filterLabel')}</label>
       <div className="panel__actions">
-        <input
+        <TextField
           id="tree-search-input"
+          size="small"
           value={query}
-          onChange={(event) => onQueryChange(event.target.value)}
           placeholder={t('tree.filterPlaceholder')}
-          type="text"
+          onChange={(event) => onQueryChange(event.target.value)}
         />
-        <button type="button" onClick={onDeepSearch}>
+        <Button size="small" onClick={onDeepSearch}>
           {t('tree.deepSearch')}
-        </button>
+        </Button>
       </div>
     </div>
   )

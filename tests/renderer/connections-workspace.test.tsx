@@ -129,7 +129,9 @@ describe('Connections workspace', () => {
       }),
     )
     expect(await screen.findByText(createdConnection.name)).toBeInTheDocument()
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
     expect(await screen.findByRole('status')).toHaveTextContent(/saved/i)
   })
 
@@ -159,7 +161,9 @@ describe('Connections workspace', () => {
 
     expect(window.zkube.connections.importFromFile).toHaveBeenCalledTimes(1)
     expect(await screen.findByText('Imported Cluster')).toBeInTheDocument()
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
     expect(await screen.findByRole('status')).toHaveTextContent(/imported/i)
   })
 
@@ -343,6 +347,8 @@ describe('Connections workspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /import connections/i }))
 
     expect(await screen.findByText('Import failed')).toBeInTheDocument()
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
   })
 })

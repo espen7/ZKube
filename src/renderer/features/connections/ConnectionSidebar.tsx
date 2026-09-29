@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 
+import { Button, Menu, MenuItem, Tooltip } from '@mui/material'
+
 import type { StoredConnection } from '../../../shared/models/connection'
 import { MaterialSymbol } from '../../components/MaterialSymbol'
+import { AppDialog } from '../../components/AppDialog'
 import { useI18n } from '../../use-i18n'
 import { AboutDialog } from '../layout/AboutDialog'
 import { ConnectionStateBadge } from '../runtime/ConnectionStateBadge'
@@ -29,17 +32,19 @@ function SideNavButton({
   isActive?: boolean
 }) {
   return (
-    <button
-      aria-label={label}
-      aria-pressed={isActive ? 'true' : 'false'}
-      className={['side-nav__icon-btn', isActive ? 'side-nav__icon-btn--active' : '']
-        .filter(Boolean)
-        .join(' ')}
-      type="button"
-      onClick={onClick}
-    >
-      <MaterialSymbol name={icon} size={18} />
-    </button>
+    <Tooltip disableInteractive title={label}>
+      <button
+        aria-label={label}
+        aria-pressed={isActive ? 'true' : 'false'}
+        className={['side-nav__icon-btn', isActive ? 'side-nav__icon-btn--active' : '']
+          .filter(Boolean)
+          .join(' ')}
+        type="button"
+        onClick={onClick}
+      >
+        <MaterialSymbol name={icon} size={18} />
+      </button>
+    </Tooltip>
   )
 }
 
@@ -75,30 +80,6 @@ export function ConnectionSidebar({
   useEffect(() => {
     void load()
   }, [])
-
-  useEffect(() => {
-    if (!contextMenu) {
-      return undefined
-    }
-
-    const handleWindowInteraction = () => {
-      setContextMenu(null)
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setContextMenu(null)
-      }
-    }
-
-    window.addEventListener('click', handleWindowInteraction)
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.removeEventListener('click', handleWindowInteraction)
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [contextMenu])
 
   useEffect(() => {
     if (!feedback) {
@@ -149,28 +130,6 @@ export function ConnectionSidebar({
 
   function isEditDisabled(connectionId: string) {
     return activeConnectionId === connectionId && connectionState !== 'disconnected'
-  }
-
-  function calculateContextMenuPosition(clientX: number, clientY: number) {
-    const menuWidth = 160
-    const menuHeight = 80
-    const padding = 8
-
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-
-    let x = clientX
-    let y = clientY
-
-    if (x + menuWidth + padding > viewportWidth) {
-      x = viewportWidth - menuWidth - padding
-    }
-
-    if (y + menuHeight + padding > viewportHeight) {
-      y = viewportHeight - menuHeight - padding
-    }
-
-    return { x: Math.max(padding, x), y: Math.max(padding, y) }
   }
 
   function handleEdit(connection: StoredConnection) {
@@ -274,11 +233,10 @@ export function ConnectionSidebar({
                     .join(' ')}
                   onContextMenu={(event) => {
                     event.preventDefault()
-                    const position = calculateContextMenuPosition(event.clientX, event.clientY)
                     setContextMenu({
                       connection: item,
-                      x: position.x,
-                      y: position.y,
+                      x: event.clientX,
+                      y: event.clientY,
                     })
                   }}
                 >
@@ -305,69 +263,59 @@ export function ConnectionSidebar({
                       )}
                     </div>
                     {isHealthy ? (
-                      <button
+                      <Button
                         aria-label={`disconnect connection ${item.name}`}
-                        className="button-danger"
-                        type="button"
+                        color="error"
+                        size="small"
+                        variant="contained"
                         onClick={() => void disconnect()}
                       >
                         {t('connection.disconnect')}
-                      </button>
+                      </Button>
                     ) : (
-                      <button
+                      <Button
                         aria-label={
                           isPending
                             ? `connection pending ${item.name}`
                             : `connect connection ${item.name}`
                         }
-                        className="button-primary"
                         disabled={transitionInFlight}
-                        type="button"
+                        size="small"
+                        variant="contained"
                         onClick={() => void connect(item.id)}
                       >
                         {isPending
                           ? t('connection.connecting')
                           : t('connection.connect')}
-                      </button>
+                      </Button>
                     )}
                   </div>
 
-                  {contextMenu?.connection.id === item.id ? (
-                    <div
-                      className="context-menu"
-                      role="menu"
-                      style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
+                  <Menu
+                    anchorReference="anchorPosition"
+                    anchorPosition={
+                      contextMenu
+                        ? { top: contextMenu.y, left: contextMenu.x }
+                        : undefined
+                    }
+                    anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                    open={contextMenu?.connection.id === item.id}
+                    onClose={() => setContextMenu(null)}
+                  >
+                    <MenuItem
+                      disabled={editDisabled}
+                      onClick={() => handleEdit(item)}
                     >
-                      <button
-                        aria-disabled={editDisabled ? 'true' : 'false'}
-                        className="context-menu__item"
-                        role="menuitem"
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          handleEdit(item)
-                        }}
-                      >
-                        {t('connection.editAction')}
-                      </button>
-                      <button
-                        aria-disabled={deleteDisabled ? 'true' : 'false'}
-                        className="context-menu__item"
-                        role="menuitem"
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          if (deleteDisabled) {
-                            return
-                          }
-
-                          void handleDelete(item)
-                        }}
-                      >
-                        {t('connection.deleteAction')}
-                      </button>
-                    </div>
-                  ) : null}
+                      {t('connection.editAction')}
+                    </MenuItem>
+                    <MenuItem
+                      disabled={deleteDisabled}
+                      onClick={() => void handleDelete(item)}
+                    >
+                      {t('connection.deleteAction')}
+                    </MenuItem>
+                  </Menu>
                 </article>
               )
             })
@@ -402,31 +350,37 @@ export function ConnectionSidebar({
         }}
       />
 
-      {deleteConfirm ? (
-        <div className="dialog-backdrop dialog-backdrop--overlay">
-          <div
-            aria-label={t('connection.deleteConfirm', { name: deleteConfirm.connection.name })}
-            aria-modal="true"
-            className="dialog"
-            role="dialog"
-          >
+      <AppDialog
+        open={deleteConfirm !== null}
+        ariaLabel={t(
+          'connection.deleteConfirm',
+          { name: deleteConfirm?.connection.name ?? '' },
+        )}
+        onClose={() => setDeleteConfirm(null)}
+      >
+        {deleteConfirm ? (
+          <>
             <h3>{t('connection.deleteAction')}</h3>
-            <p>{t('connection.deleteConfirm', { name: deleteConfirm.connection.name })}</p>
+            <p>
+              {t('connection.deleteConfirm', {
+                name: deleteConfirm.connection.name,
+              })}
+            </p>
             <div className="dialog__actions">
-              <button type="button" onClick={() => setDeleteConfirm(null)}>
+              <Button type="button" onClick={() => setDeleteConfirm(null)}>
                 {t('dialog.cancel')}
-              </button>
-              <button
-                className="button-danger"
-                type="button"
+              </Button>
+              <Button
+                color="error"
+                variant="contained"
                 onClick={() => void handleConfirmDelete()}
               >
                 {t('connection.deleteAction')}
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </AppDialog>
     </aside>
   )
 }

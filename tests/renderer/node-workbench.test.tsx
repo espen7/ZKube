@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const monacoEditorSpy = vi.hoisted(() => vi.fn())
@@ -231,17 +238,17 @@ describe('node workbench', () => {
     )
     expect(monacoEditorSpy).toHaveBeenCalled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Meta' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Meta' }))
     const metaPane = await screen.findByLabelText('Node meta pane')
     expect(within(metaPane).getByText('7')).toBeInTheDocument()
     expect(within(metaPane).getByText('2')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'ACL' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'ACL' }))
     expect(
       screen.getByRole('checkbox', { name: 'read' }),
     ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Data' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Data' }))
     expect(screen.getByTestId('monaco-editor')).toHaveValue('{"service":"zk"}')
   })
 
@@ -252,7 +259,7 @@ describe('node workbench', () => {
 
     await openNode()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Meta' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Meta' }))
     const metaPane = screen.getByLabelText('Node meta pane')
 
     expect(within(metaPane).getByText('/config/service')).toBeInTheDocument()
@@ -291,7 +298,7 @@ describe('node workbench', () => {
 
     await openNode()
 
-    fireEvent.click(screen.getByRole('button', { name: 'ACL' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'ACL' }))
 
     expect(
       await screen.findByText('This node does not expose a `world:anyone` ACL record.'),
@@ -328,7 +335,7 @@ describe('node workbench', () => {
 
     await openNode()
 
-    fireEvent.click(screen.getByRole('button', { name: 'ACL' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'ACL' }))
 
     const writeCheckbox = await screen.findByRole('checkbox', { name: 'write' })
     fireEvent.click(writeCheckbox)
@@ -420,7 +427,11 @@ describe('node workbench', () => {
     expect(editor).toHaveValue('{\n  "service": "zk",\n  "enabled": true\n}')
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+      fireEvent.click(
+        within(screen.getByTestId('node-editor-actions')).getByRole('button', {
+          name: 'Save',
+        }),
+      )
     })
 
     const saveDialog = await screen.findByRole('dialog', { name: 'Save changes?' })
@@ -429,12 +440,22 @@ describe('node workbench', () => {
       fireEvent.click(saveConfirmButton)
     })
 
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: 'Save changes?' }),
+      ).not.toBeInTheDocument()
+    })
+
     fireEvent.change(editor, {
       target: { value: '{"service":"zk","enabled":false}' },
     })
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+      fireEvent.click(
+        within(screen.getByTestId('node-editor-actions')).getByRole('button', {
+          name: 'Save',
+        }),
+      )
     })
 
     const saveDialog2 = await screen.findByRole('dialog', { name: 'Save changes?' })
@@ -474,7 +495,11 @@ describe('node workbench', () => {
     })
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+      fireEvent.click(
+        within(screen.getByTestId('node-editor-actions')).getByRole('button', {
+          name: 'Save',
+        }),
+      )
     })
 
     const saveDialog = await screen.findByRole('dialog', { name: 'Save changes?' })
@@ -487,7 +512,11 @@ describe('node workbench', () => {
       'This node was updated elsewhere. Refresh the node and review the latest data before saving again.',
     )
     expect(editor).toHaveValue('{"service":"dirty"}')
-    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled()
+    expect(
+      within(screen.getByTestId('node-editor-actions')).getByRole('button', {
+        name: 'Save',
+      }),
+    ).toBeEnabled()
   })
 
   it('keeps non-version save failures on the generic error path', async () => {
@@ -500,7 +529,11 @@ describe('node workbench', () => {
     await openNode()
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+      fireEvent.click(
+        within(screen.getByTestId('node-editor-actions')).getByRole('button', {
+          name: 'Save',
+        }),
+      )
     })
 
     const saveDialog = await screen.findByRole('dialog', { name: 'Save changes?' })
@@ -542,7 +575,7 @@ describe('node workbench', () => {
     expect(await screen.findByTestId('monaco-editor')).toHaveValue(
       '{"service":"refreshed"}',
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Meta' }))
+    fireEvent.click(screen.getByRole('tab', { name: 'Meta' }))
     expect(screen.getByText('8')).toBeInTheDocument()
   })
 
@@ -883,7 +916,11 @@ describe('node workbench', () => {
     expect(await screen.findByTestId('monaco-editor')).toHaveValue(
       '{"service":"clean"}',
     )
-    expect(screen.queryByRole('dialog', { name: 'Discard unsaved changes?' })).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: 'Discard unsaved changes?' }),
+      ).not.toBeInTheDocument()
+    })
   })
 
   it('clears old workbench tabs on connection changes and prevents saving stale paths', async () => {

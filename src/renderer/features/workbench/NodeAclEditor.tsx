@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
+import { Button } from '@mui/material'
+
 import type { AclEntry } from '../../../shared/models/node'
 import { useI18n } from '../../use-i18n'
 
@@ -139,13 +141,14 @@ export function NodeAclEditor({ path, acl, onSaved }: NodeAclEditorProps) {
             flexWrap: 'wrap',
           }}
         >
-          <button
+          <Button
             type="button"
+            variant="contained"
             onClick={() => void handleSave()}
             disabled={saving || !canEditWorldAnyone}
           >
             {saving ? t('acl.saving') : t('acl.save')}
-          </button>
+          </Button>
           {feedback ? <p role="status">{feedback}</p> : null}
         </div>
         {error ? <p role="alert">{error}</p> : null}

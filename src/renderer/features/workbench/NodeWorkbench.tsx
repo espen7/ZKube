@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 
+import { Button, Menu, MenuItem, Tab, Tabs } from '@mui/material'
+
 import type { NodeMarkColor } from '../../../shared/models/node'
 
+import { AppDialog } from '../../components/AppDialog'
 import { useConnectionsStore } from '../connections/useConnectionsStore'
 import { useTreeStore } from '../tree/useTreeStore'
 import { useI18n } from '../../use-i18n'
@@ -84,30 +87,6 @@ export function NodeWorkbench() {
       setRefreshConfirmOpen(false)
     }
   }, [activeTab?.path])
-
-  useEffect(() => {
-    if (!markContextMenu) {
-      return undefined
-    }
-
-    const handleWindowInteraction = () => {
-      setMarkContextMenu(null)
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setMarkContextMenu(null)
-      }
-    }
-
-    window.addEventListener('click', handleWindowInteraction)
-    window.addEventListener('keydown', handleKeyDown)
-
-    return () => {
-      window.removeEventListener('click', handleWindowInteraction)
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [markContextMenu])
 
   async function handleRefreshNode() {
     if (!activeTab) {
@@ -226,10 +205,13 @@ export function NodeWorkbench() {
         {activeTab ? (
           <section className="workspace-card workspace-card--chrome" aria-label="Node pane switcher">
             <div className="panel__body">
-              <div
-                role="tablist"
+              <Tabs
                 aria-label="Node panes"
                 className="segmented segmented--pane"
+                value={activeTab.activePane}
+                onChange={(_event, value: 'Data' | 'Meta' | 'ACL') =>
+                  setActivePane(activeTab.path, value)
+                }
               >
                 {(
                   [
@@ -237,26 +219,15 @@ export function NodeWorkbench() {
                     ['Meta', 'meta.title'],
                     ['ACL', 'acl.title'],
                   ] as const
-                ).map(([pane, messageKey]) => {
-                  const selected = activeTab.activePane === pane
-                  return (
-                    <button
-                      key={pane}
-                      type="button"
-                      aria-pressed={selected}
-                      className={[
-                        'segmented__item',
-                        selected ? 'is-selected' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      onClick={() => setActivePane(activeTab.path, pane)}
-                    >
-                      {t(messageKey)}
-                    </button>
-                  )
-                })}
-              </div>
+                ).map(([pane, messageKey]) => (
+                  <Tab
+                    key={pane}
+                    disableRipple
+                    value={pane}
+                    label={t(messageKey)}
+                  />
+                ))}
+              </Tabs>
             </div>
           </section>
         ) : null}
@@ -304,80 +275,78 @@ export function NodeWorkbench() {
         </div>
       </div>
 
-      {markContextMenu ? (
-        <div
-          className="context-menu"
-          role="menu"
-          style={{ left: `${markContextMenu.x}px`, top: `${markContextMenu.y}px` }}
-        >
-          <button
-            className="context-menu__item"
-            role="menuitem"
-            type="button"
+      <Menu
+        anchorReference="anchorPosition"
+        anchorPosition={
+          markContextMenu
+            ? { top: markContextMenu.y, left: markContextMenu.x }
+            : undefined
+        }
+        anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        open={markContextMenu !== null}
+        onClose={() => setMarkContextMenu(null)}
+      >
+        {markContextMenu ? (
+          <MenuItem
             onClick={() => {
               setMarkContextMenu(null)
               void clearNodeMark(activeConnectionId, markContextMenu.path)
             }}
           >
             {t('workbench.removeMark')}
-          </button>
-        </div>
-      ) : null}
+          </MenuItem>
+        ) : null}
+      </Menu>
 
-      {refreshConfirmOpen && activeTab ? (
-        <div className="dialog-backdrop dialog-backdrop--overlay">
-          <div
-            aria-label={t('workbench.refreshConfirmTitle')}
-            aria-modal="true"
-            className="dialog"
-            role="dialog"
-          >
+      <AppDialog
+        open={refreshConfirmOpen && activeTab !== null}
+        ariaLabel={t('workbench.refreshConfirmTitle')}
+        onClose={() => setRefreshConfirmOpen(false)}
+      >
+        {activeTab ? (
+          <div className="dialog__body">
             <h3>{t('workbench.refreshConfirmTitle')}</h3>
             <p>{t('workbench.refreshConfirmDescription')}</p>
             <div className="dialog__actions">
-              <button type="button" onClick={() => setRefreshConfirmOpen(false)}>
+              <Button type="button" onClick={() => setRefreshConfirmOpen(false)}>
                 {t('dialog.cancel')}
-              </button>
-              <button
-                className="button-danger"
-                type="button"
+              </Button>
+              <Button
+                color="error"
+                variant="contained"
                 onClick={() => {
                   setRefreshConfirmOpen(false)
                   void refreshTab(activeTab.path)
                 }}
               >
                 {t('workbench.discardAndRefresh')}
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </AppDialog>
 
-      {saveConfirmOpen && activeTab ? (
-        <div className="dialog-backdrop dialog-backdrop--overlay">
-          <div
-            aria-label={t('workbench.saveConfirmTitle')}
-            aria-modal="true"
-            className="dialog"
-            role="dialog"
-          >
+      <AppDialog
+        open={saveConfirmOpen && activeTab !== null}
+        ariaLabel={t('workbench.saveConfirmTitle')}
+        onClose={() => setSaveConfirmOpen(false)}
+      >
+        {activeTab ? (
+          <div className="dialog__body">
             <h3>{t('workbench.saveConfirmTitle')}</h3>
             <p>{t('workbench.saveConfirmDescription')}</p>
             <div className="dialog__actions">
-              <button type="button" onClick={() => setSaveConfirmOpen(false)}>
+              <Button type="button" onClick={() => setSaveConfirmOpen(false)}>
                 {t('dialog.cancel')}
-              </button>
-              <button
-                className="button-primary"
-                type="button"
-                onClick={() => void handleConfirmSave()}
-              >
+              </Button>
+              <Button variant="contained" onClick={() => void handleConfirmSave()}>
                 {t('workbench.confirmSave')}
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
+      </AppDialog>
     </section>
   )
 }

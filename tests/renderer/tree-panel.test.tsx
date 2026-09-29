@@ -914,7 +914,12 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      fireEvent.submit(screen.getByRole('dialog', { name: 'Create child node' }))
+      fireEvent.click(
+        within(screen.getByRole('dialog', { name: 'Create child node' })).getByRole(
+          'button',
+          { name: 'Create child node' },
+        ),
+      )
     })
 
     expect(createMock).toHaveBeenCalledWith(
@@ -1014,7 +1019,12 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      fireEvent.submit(screen.getByRole('dialog', { name: 'Create child node' }))
+      fireEvent.click(
+        within(screen.getByRole('dialog', { name: 'Create child node' })).getByRole(
+          'button',
+          { name: 'Create child node' },
+        ),
+      )
     })
 
     await act(async () => {
@@ -1125,7 +1135,12 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      fireEvent.submit(screen.getByRole('dialog', { name: 'Create child node' }))
+      fireEvent.click(
+        within(screen.getByRole('dialog', { name: 'Create child node' })).getByRole(
+          'button',
+          { name: 'Create child node' },
+        ),
+      )
     })
 
     expect(await screen.findByText('t2')).toBeInTheDocument()
@@ -1169,7 +1184,12 @@ describe('Tree panel', () => {
     })
 
     await act(async () => {
-      fireEvent.submit(screen.getByRole('dialog', { name: 'Create child node' }))
+      fireEvent.click(
+        within(screen.getByRole('dialog', { name: 'Create child node' })).getByRole(
+          'button',
+          { name: 'Create child node' },
+        ),
+      )
     })
 
     expect(await screen.findByRole('status')).toHaveTextContent(

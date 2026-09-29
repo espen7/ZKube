@@ -159,7 +159,7 @@ describe('connection status ui', () => {
       within(card as HTMLElement).getByRole('button', {
         name: /disconnect connection local zookeeper/i,
       }),
-    ).toHaveClass('button-danger')
+    ).toHaveClass('MuiButton-colorError')
 
     const statusBar = screen.getByLabelText('Runtime status bar')
     expect(

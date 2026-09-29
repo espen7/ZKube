@@ -1,5 +1,6 @@
-import { createPortal } from 'react-dom'
+import { Button, TextField } from '@mui/material'
 
+import { AppDialog } from '../../components/AppDialog'
 import { useI18n } from '../../use-i18n'
 
 const PROJECT_URL = 'https://github.com/espen7/ZKube'
@@ -68,52 +69,55 @@ export function AboutDialog({
 }) {
   const { t } = useI18n()
 
-  if (!open) {
-    return null
-  }
-
-  return createPortal(
-    <div className="dialog-backdrop dialog-backdrop--overlay">
-      <div
-        aria-label={t('about.title')}
-        aria-modal="true"
-        className="dialog about-dialog"
-        role="dialog"
-      >
-        <div className="about-dialog__header">
-          <div className="about-dialog__icon" aria-hidden="true">
-            <BrandGlyph />
-          </div>
-          <div className="about-dialog__identity">
-            <h3>ZKube</h3>
-            <p>{t('about.subtitle')}</p>
-          </div>
+  return (
+    <AppDialog
+      open={open}
+      ariaLabel={t('about.title')}
+      onClose={onClose}
+      paperClassName="about-dialog"
+    >
+      <div className="about-dialog__header">
+        <div className="about-dialog__icon" aria-hidden="true">
+          <BrandGlyph />
         </div>
-
-        <dl className="about-dialog__details">
-          <dt>{t('about.version')}</dt>
-          <dd>{version}</dd>
-          <dt>{t('about.copyright')}</dt>
-          <dd>{t('about.copyrightValue')}</dd>
-          <dt>{t('about.project')}</dt>
-          <dd>
-            <div className="about-dialog__link-row">
-              <input readOnly value={PROJECT_URL} aria-label={t('about.project')} />
-              <button type="button" onClick={onCopy}>
-                {copied ? t('about.copied') : t('about.copyLink')}
-              </button>
-            </div>
-          </dd>
-        </dl>
-
-        <div className="dialog__actions">
-          <button type="button" onClick={onClose}>
-            {t('about.close')}
-          </button>
+        <div className="about-dialog__identity">
+          <h3>ZKube</h3>
+          <p>{t('about.subtitle')}</p>
         </div>
       </div>
-    </div>,
-    document.body,
+
+      <dl className="about-dialog__details">
+        <dt>{t('about.version')}</dt>
+        <dd>{version}</dd>
+        <dt>{t('about.copyright')}</dt>
+        <dd>{t('about.copyrightValue')}</dd>
+        <dt>{t('about.project')}</dt>
+        <dd>
+          <div className="about-dialog__link-row">
+            <TextField
+              slotProps={{
+                htmlInput: {
+                  'aria-label': t('about.project'),
+                  readOnly: true,
+                },
+              }}
+              size="small"
+              value={PROJECT_URL}
+              onChange={() => undefined}
+            />
+            <Button type="button" onClick={onCopy}>
+              {copied ? t('about.copied') : t('about.copyLink')}
+            </Button>
+          </div>
+        </dd>
+      </dl>
+
+      <div className="dialog__actions">
+        <Button type="button" onClick={onClose}>
+          {t('about.close')}
+        </Button>
+      </div>
+    </AppDialog>
   )
 }
 

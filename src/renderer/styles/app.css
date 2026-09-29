@@ -37,6 +37,16 @@ button {
   cursor: pointer;
 }
 
+input.MuiInputBase-input {
+  border: 0;
+  background: transparent;
+}
+
+button.MuiButtonBase-root {
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
 .app-shell {
   display: flex;
   flex-direction: column;
@@ -206,7 +216,6 @@ button {
 }
 
 .side-nav__icon-btn {
-  position: relative;
   display: grid;
   place-items: center;
   width: 36px;
@@ -216,42 +225,6 @@ button {
   border-radius: 12px;
   color: var(--text-main);
   background: var(--bg-subtle);
-}
-
-.side-nav__icon-btn::after {
-  content: attr(aria-label);
-  position: absolute;
-  left: calc(100% + 12px);
-  top: 50%;
-  transform: translateY(-50%) translateX(-4px);
-  padding: 6px 10px;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.82);
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  box-shadow: var(--shadow-overlay);
-  opacity: 0;
-  pointer-events: none;
-  z-index: 40;
-  transition:
-    opacity 140ms var(--ease-out-quart, ease),
-    transform 140ms var(--ease-out-quart, ease);
-}
-
-.side-nav__icon-btn:hover::after,
-.side-nav__icon-btn:focus-visible::after {
-  opacity: 1;
-  transform: translateY(-50%) translateX(0);
-  transition-delay: 220ms;
-}
-
-:root[data-theme='dark'] .side-nav__icon-btn::after {
-  background: rgba(72, 72, 76, 0.96);
-  color: #f5f5f7;
 }
 
 .side-nav__icon-btn:hover {
@@ -320,49 +293,7 @@ button {
 .panel__actions {
   display: flex;
   gap: 8px;
-}
-
-.tool-button {
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  font-size: 12px;
-  line-height: 1;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md, 8px);
-  transition:
-    background 140ms ease,
-    border-color 140ms ease,
-    color 140ms ease,
-    opacity 140ms ease;
-}
-
-.tool-button:hover {
-  color: var(--text-main);
-  background: var(--surface-muted);
-  border-color: var(--border-strong);
-}
-
-.tool-button[disabled],
-.tool-button--loading {
-  cursor: not-allowed;
-  opacity: 0.7;
-}
-
-.tool-button[disabled]:hover,
-.tool-button--loading:hover {
-  background: transparent;
-  border-color: var(--border);
-  color: var(--text-secondary);
-}
-
-.tool-button svg {
-  width: 14px;
-  height: 14px;
-  flex: 0 0 auto;
 }
 
 @keyframes icon-spin {
@@ -472,6 +403,10 @@ button {
   text-transform: none;
   white-space: nowrap;
   opacity: 0.9;
+}
+
+.tree-grid__refresh-anchor {
+  display: inline-flex;
 }
 
 .tree-grid__refresh {
@@ -832,9 +767,7 @@ button {
   background: var(--bg-accent-soft);
 }
 
-.context-menu {
-  position: fixed;
-  z-index: 20;
+.MuiMenu-paper.MuiPopover-paper {
   min-width: 168px;
   padding: 6px;
   border: 1px solid var(--hairline);
@@ -845,27 +778,27 @@ button {
   box-shadow: var(--shadow-overlay);
 }
 
-.context-menu__item {
-  width: 100%;
+.MuiMenu-paper .MuiMenuItem-root {
+  min-height: 0;
   padding: 10px 12px;
-  border: 0;
   border-radius: calc(var(--radius-sm) - 2px);
-  text-align: left;
   color: var(--text-main);
-  background: transparent;
+  font-size: inherit;
+  line-height: 1.4;
 }
 
-.context-menu__item:hover {
+.MuiMenu-paper .MuiMenuItem-root:hover {
   background: var(--bg-accent-soft);
 }
 
-.context-menu__item[aria-disabled='true'] {
+.MuiMenu-paper .MuiMenuItem-root.Mui-disabled {
   cursor: not-allowed;
   color: var(--text-muted);
   background: transparent;
+  opacity: 1;
 }
 
-.context-menu__label {
+.MuiMenu-paper .context-menu__label {
   padding: 8px 12px 4px;
   color: var(--text-muted);
   font-size: 0.78rem;
@@ -873,25 +806,26 @@ button {
   text-transform: uppercase;
 }
 
-.context-menu__mark-row {
+.MuiMenu-paper .context-menu__mark-row {
   display: grid;
   gap: 8px;
   padding: 8px 12px 10px;
 }
 
-.context-menu__mark-row .context-menu__label {
+.MuiMenu-paper .context-menu__mark-row .context-menu__label {
   padding: 0;
 }
 
-.context-menu__swatches {
+.MuiMenu-paper .context-menu__swatches {
   display: flex;
   gap: 8px;
 }
 
-.context-menu__swatch {
+.MuiMenu-paper .context-menu__swatch {
   width: 18px;
   min-width: 18px;
   height: 18px;
+  min-height: 0;
   padding: 0;
   border: 1px solid rgba(15, 23, 42, 0.16);
   border-radius: 999px;
@@ -916,34 +850,6 @@ button {
 .context-menu__swatch--selected {
   outline: 2px solid var(--text-main);
   outline-offset: 2px;
-}
-
-.button-primary {
-  border-color: var(--accent);
-  color: #fff;
-  background: var(--accent);
-}
-
-.button-primary:hover {
-  border-color: var(--accent-strong);
-  background: var(--accent-strong);
-}
-
-.button-danger {
-  border-color: rgba(226, 91, 91, 0.42);
-  color: #fff5f5;
-  background: rgba(226, 91, 91, 0.82);
-}
-
-.button-danger:hover {
-  border-color: rgba(226, 91, 91, 0.56);
-  background: rgba(226, 91, 91, 0.94);
-}
-
-.button-primary:disabled,
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
 }
 
 .connection-state-badge,
@@ -1303,28 +1209,17 @@ button:disabled {
   color: var(--text-muted);
 }
 
-.dialog-backdrop {
-  position: fixed;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: var(--bg-overlay);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-}
-
-.dialog-backdrop--overlay {
-  z-index: 120;
-}
-
-.dialog {
+.MuiDialog-paper.dialog {
   width: min(100%, 480px);
   padding: 22px;
   border: 1px solid var(--hairline);
   border-radius: var(--radius-lg);
   background: var(--bg-panel-strong);
   box-shadow: var(--shadow-overlay);
+}
+
+.MuiDialog-paper.about-dialog {
+  width: min(100%, 460px);
 }
 
 .dialog h3 {
@@ -1369,29 +1264,6 @@ button:disabled {
   justify-content: flex-end;
   gap: 10px;
   margin-top: 18px;
-}
-
-.dialog__body {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 24px;
-}
-
-.dialog__body h3 {
-  margin: 0;
-  font-size: 1.05rem;
-  color: var(--text-main);
-}
-
-.dialog__body p {
-  margin: 0;
-  color: var(--text-muted);
-  line-height: 1.5;
-}
-
-.dialog__body .dialog__actions {
-  margin-top: 12px;
 }
 
 .about-dialog {
@@ -1536,87 +1408,53 @@ button:disabled {
   }
 }
 
-/* Apple-style segmented control (pane tabs / toolbar pickers) */
-.segmented {
-  display: inline-flex;
+/* MUI Tabs styled as a segmented control (pane tabs) */
+.segmented--pane.MuiTabs-root {
+  min-height: 32px;
   padding: 2px;
   gap: 2px;
-  background: var(--surface-muted);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow:
-    inset 0 1px 2px rgba(15, 23, 42, 0.04),
-    0 0 0 0.5px rgba(255, 255, 255, 0.4) inset;
-}
-
-.segmented--pane {
-  padding: 2px;
   background: rgba(120, 120, 128, 0.12);
-  border-color: rgba(120, 120, 128, 0.2);
+  border: 1px solid rgba(120, 120, 128, 0.2);
+  border-radius: 8px;
 }
 
-.segmented__item {
-  position: relative;
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
+.segmented--pane .MuiTab-root {
+  min-height: 28px;
   padding: 3px 12px;
+  border-radius: 6px;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 500;
   line-height: 1.3;
   letter-spacing: -0.01em;
-  border-radius: 6px;
-  cursor: pointer;
-  transition:
-    color 140ms ease,
-    background-color 160ms ease,
-    box-shadow 160ms ease,
-    transform 100ms ease;
+  text-transform: none;
   min-width: 48px;
-  text-align: center;
 }
 
-.segmented__item:hover {
+.segmented--pane .MuiTab-root:hover {
   color: var(--text-main);
   background: rgba(120, 120, 128, 0.06);
 }
 
-.segmented__item:active:not(.is-selected) {
-  background: rgba(120, 120, 128, 0.12);
-}
-
-.segmented__item.is-selected {
+.segmented--pane .MuiTab-root.Mui-selected {
   color: var(--text-main);
   background: var(--bg-panel);
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.1),
-    0 0.5px 1px rgba(15, 23, 42, 0.08),
-    0 0 0 0.5px var(--border-strong);
-  cursor: default;
   font-weight: 600;
 }
 
-@media (prefers-color-scheme: dark) {
-  .segmented {
-    box-shadow:
-      inset 0 1px 2px rgba(0, 0, 0, 0.4),
-      0 0 0 0.5px rgba(255, 255, 255, 0.04) inset;
-  }
+.segmented--pane .MuiTabs-indicator {
+  display: none;
+}
 
-  .segmented--pane {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.08);
-  }
+:root[data-theme='dark'] .segmented--pane.MuiTabs-root {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.08);
+}
 
-  .segmented__item:hover {
-    background: rgba(255, 255, 255, 0.05);
-  }
+:root[data-theme='dark'] .segmented--pane .MuiTab-root:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
 
-  .segmented__item.is-selected {
-    background: rgba(60, 60, 68, 0.9);
-    box-shadow:
-      0 1px 2px rgba(0, 0, 0, 0.35),
-      0 0 0 0.5px rgba(255, 255, 255, 0.08);
-  }
+:root[data-theme='dark'] .segmented--pane .MuiTab-root.Mui-selected {
+  background: rgba(60, 60, 68, 0.9);
 }

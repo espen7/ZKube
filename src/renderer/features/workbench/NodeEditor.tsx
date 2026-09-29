@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import Editor, { type Monaco } from '@monaco-editor/react'
+import { Button } from '@mui/material'
 
 import { useI18n } from '../../use-i18n'
 import { useThemeStore } from '../settings/useThemeStore'
@@ -149,15 +150,20 @@ export function NodeEditor({
           )}
         </div>
         <div className="node-editor__actions" data-testid="node-editor-actions">
-          <button type="button" onClick={onFormatJson} disabled={showLoading}>
+          <Button size="small" onClick={onFormatJson} disabled={showLoading}>
             {t('editor.formatJson')}
-          </button>
-          <button type="button" onClick={onFormatXml} disabled={showLoading}>
+          </Button>
+          <Button size="small" onClick={onFormatXml} disabled={showLoading}>
             {t('editor.formatXml')}
-          </button>
-          <button type="button" onClick={onSave} disabled={showLoading || isSaving}>
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            onClick={onSave}
+            disabled={showLoading || isSaving}
+          >
             {isSaving ? t('editor.saving') : t('editor.save')}
-          </button>
+          </Button>
         </div>
         {showLoading ? <p>{t('editor.loading')}</p> : null}
         {monacoError ? (
