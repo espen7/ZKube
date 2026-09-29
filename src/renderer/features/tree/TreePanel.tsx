@@ -432,7 +432,11 @@ function getLastRefreshLabel(
   })
 }
 
-export function TreePanel() {
+export function TreePanel({
+  containerRef,
+}: {
+  containerRef?: { current: HTMLElement | null }
+}) {
   const { t } = useI18n()
   const activePath = useWorkbenchStore((store) => store.activePath)
   const openNode = useWorkbenchStore((store) => store.openNode)
@@ -640,7 +644,7 @@ export function TreePanel() {
   const visibleIndexRef = { value: 0 }
 
   return (
-    <aside className="panel tree-panel" aria-label={t('panel.nodes')}>
+    <aside ref={containerRef} className="panel tree-panel" aria-label={t('panel.nodes')}>
       <div className="panel__header">
         <div>
           <div className="panel__eyebrow">{t('panel.tree')}</div>

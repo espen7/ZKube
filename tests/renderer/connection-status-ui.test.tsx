@@ -352,8 +352,10 @@ describe('connection status ui', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'OK' }))
 
-    expect(
-      screen.queryByRole('dialog', { name: 'Connection lost' }),
-    ).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('dialog', { name: 'Connection lost' }),
+      ).not.toBeInTheDocument()
+    })
   })
 })

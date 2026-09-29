@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 
+import { Dialog } from '@mui/material'
+
 import { ConnectionDialog } from '../connections/ConnectionDialog'
 import { ConnectionSidebar } from '../connections/ConnectionSidebar'
-import { NavigationToolRail } from './NavigationToolRail'
+import { MainHeader } from './MainHeader'
 import { StatusBar } from '../runtime/StatusBar'
 import { useRuntimeEvents } from '../runtime/useRuntimeEvents'
 import { useZooKeeperOverview } from '../runtime/useZooKeeperOverview'
@@ -12,38 +14,25 @@ import { NodeWorkbench } from '../workbench/NodeWorkbench'
 import { useConnectionsStore } from '../connections/useConnectionsStore'
 import { useI18n } from '../../use-i18n'
 
-const DEFAULT_NAVIGATION_WIDTH = 980
-const MIN_NAVIGATION_WIDTH = 700
-const MAX_NAVIGATION_WIDTH = 1180
-const COMPACT_MIN_NAVIGATION_WIDTH = 560
-const DESKTOP_STACK_BREAKPOINT = 1100
-const WIDE_LAYOUT_BREAKPOINT = 1500
+const DEFAULT_TREE_WIDTH = 380
+const MIN_TREE_WIDTH = 280
+const MAX_TREE_WIDTH = 640
+const SIDE_NAV_EXPANDED_WIDTH = 260
 const WORKSPACE_MIN_WIDTH = 420
 const RESIZER_WIDTH = 12
-const GRID_GAP = 12
-const APP_SHELL_HORIZONTAL_PADDING = 24
+const APP_HORIZONTAL_PADDING = 24
 
-function getSafeNavigationWidth(width: number, viewportWidth: number) {
-  if (viewportWidth <= DESKTOP_STACK_BREAKPOINT) {
-    return Math.min(MAX_NAVIGATION_WIDTH, Math.max(MIN_NAVIGATION_WIDTH, width))
-  }
+function getSafeTreeWidth(width: number, viewportWidth: number) {
+  const maxWidth = Math.min(
+    MAX_TREE_WIDTH,
+    viewportWidth -
+      SIDE_NAV_EXPANDED_WIDTH -
+      RESIZER_WIDTH -
+      WORKSPACE_MIN_WIDTH -
+      APP_HORIZONTAL_PADDING,
+  )
 
-  const reservedWidth =
-    WORKSPACE_MIN_WIDTH +
-    RESIZER_WIDTH +
-    APP_SHELL_HORIZONTAL_PADDING +
-    GRID_GAP * 2
-  const maxWidth = Math.min(MAX_NAVIGATION_WIDTH, viewportWidth - reservedWidth)
-  const minimumWidth =
-    viewportWidth <= WIDE_LAYOUT_BREAKPOINT
-      ? COMPACT_MIN_NAVIGATION_WIDTH
-      : MIN_NAVIGATION_WIDTH
-
-  if (maxWidth <= minimumWidth) {
-    return Math.max(0, maxWidth)
-  }
-
-  return Math.min(maxWidth, Math.max(minimumWidth, width))
+  return Math.min(maxWidth, Math.max(MIN_TREE_WIDTH, width))
 }
 
 export function AppShell() {
@@ -56,11 +45,12 @@ export function AppShell() {
     disconnectNoticeOpen,
     dismissDisconnectNotice,
   } = useConnectionsStore()
-  const [navigationWidth, setNavigationWidth] = useState(() =>
-    getSafeNavigationWidth(DEFAULT_NAVIGATION_WIDTH, window.innerWidth),
+  const [treeWidth, setTreeWidth] = useState(() =>
+    getSafeTreeWidth(DEFAULT_TREE_WIDTH, window.innerWidth),
   )
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const dragOffsetRef = useRef<number | null>(null)
+  const treePanelRef = useRef<HTMLElement | null>(null)
   const activeConnection =
     items.find((item) => item.id === activeConnectionId) ?? null
 
@@ -78,11 +68,12 @@ export function AppShell() {
         return
       }
 
-      const nextWidth = getSafeNavigationWidth(
-        event.clientX - dragOffsetRef.current,
+      const treeLeft = treePanelRef.current?.getBoundingClientRect().left ?? 0
+      const nextWidth = getSafeTreeWidth(
+        event.clientX - dragOffsetRef.current - treeLeft,
         window.innerWidth,
       )
-      setNavigationWidth(nextWidth)
+      setTreeWidth(nextWidth)
     }
 
     const stopDragging = () => {
@@ -102,7 +93,7 @@ export function AppShell() {
 
   useEffect(() => {
     const handleResize = () => {
-      setNavigationWidth((width) => getSafeNavigationWidth(width, window.innerWidth))
+      setTreeWidth((width) => getSafeTreeWidth(width, window.innerWidth))
     }
 
     window.addEventListener('resize', handleResize)
@@ -110,7 +101,8 @@ export function AppShell() {
   }, [])
 
   const startDragging = (clientX: number) => {
-    dragOffsetRef.current = clientX - navigationWidth
+    const treeLeft = treePanelRef.current?.getBoundingClientRect().left ?? 0
+    dragOffsetRef.current = clientX - treeLeft - treeWidth
     document.body.style.cursor = 'col-resize'
     document.body.style.userSelect = 'none'
   }
@@ -119,49 +111,46 @@ export function AppShell() {
     <div
       aria-label="ZKube app shell"
       className="app-shell"
-      style={{ '--navigation-width': `${navigationWidth}px` } as CSSProperties}
+      style={{ '--tree-width': `${treeWidth}px` } as CSSProperties}
     >
-      <section
-        aria-label="Navigation workspace"
-        className={[
-          'navigation-workspace',
-          sidebarCollapsed ? 'navigation-workspace--collapsed' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        <NavigationToolRail
-          sidebarCollapsed={sidebarCollapsed}
-          onToggleSidebar={() => setSidebarCollapsed((value) => !value)}
-        />
-        <ConnectionSidebar collapsed={sidebarCollapsed} />
-        <TreePanel />
-      </section>
-
-      <div
-        aria-label="Resize tree and workbench"
-        className="layout-resizer"
-        role="separator"
-        tabIndex={0}
-        aria-orientation="vertical"
-        onMouseDown={(event) => startDragging(event.clientX)}
-        onKeyDown={(event) => {
-          if (event.key === 'ArrowLeft') {
-            setNavigationWidth((width) =>
-              getSafeNavigationWidth(width - 24, window.innerWidth),
-            )
-          }
-          if (event.key === 'ArrowRight') {
-            setNavigationWidth((width) =>
-              getSafeNavigationWidth(width + 24, window.innerWidth),
-            )
-          }
-        }}
+      <MainHeader
+        connectionState={connectionState}
+        connectionName={activeConnection?.name ?? null}
+        connectionHosts={activeConnection?.hosts ?? null}
       />
 
-      <main className="workspace">
-        <NodeWorkbench />
-      </main>
+      <div aria-label="Navigation workspace" className="app-container">
+        <ConnectionSidebar
+          collapsed={sidebarCollapsed}
+          onToggleSidebar={() => setSidebarCollapsed((value) => !value)}
+        />
+        <TreePanel containerRef={treePanelRef} />
+
+        <div
+          aria-label="Resize tree and workbench"
+          className="layout-resizer"
+          role="separator"
+          tabIndex={0}
+          aria-orientation="vertical"
+          onMouseDown={(event) => startDragging(event.clientX)}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowLeft') {
+              setTreeWidth((width) =>
+                getSafeTreeWidth(width - 24, window.innerWidth),
+              )
+            }
+            if (event.key === 'ArrowRight') {
+              setTreeWidth((width) =>
+                getSafeTreeWidth(width + 24, window.innerWidth),
+              )
+            }
+          }}
+        />
+
+        <main className="workspace">
+          <NodeWorkbench />
+        </main>
+      </div>
 
       <footer className="app-shell__footer">
         <StatusBar
@@ -176,24 +165,21 @@ export function AppShell() {
 
       <ConnectionDialog />
 
-      {disconnectNoticeOpen ? (
-        <div className="dialog-backdrop dialog-backdrop--overlay">
-          <div
-            aria-label={t('dialog.connectionLost')}
-            aria-modal="true"
-            className="dialog"
-            role="dialog"
-          >
-            <h3>{t('dialog.connectionLost')}</h3>
-            <p>{t('connection.lostDescription')}</p>
-            <div className="dialog__actions">
-              <button className="button-primary" type="button" onClick={dismissDisconnectNotice}>
-                {t('dialog.ok')}
-              </button>
-            </div>
+      <Dialog
+        onClose={dismissDisconnectNotice}
+        open={disconnectNoticeOpen}
+        slotProps={{ paper: { 'aria-label': t('dialog.connectionLost') } }}
+      >
+        <div className="dialog__body">
+          <h3>{t('dialog.connectionLost')}</h3>
+          <p>{t('connection.lostDescription')}</p>
+          <div className="dialog__actions">
+            <button className="button-primary" type="button" onClick={dismissDisconnectNotice}>
+              {t('dialog.ok')}
+            </button>
           </div>
         </div>
-      ) : null}
+      </Dialog>
     </div>
   )
 }

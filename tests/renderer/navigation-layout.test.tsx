@@ -116,7 +116,7 @@ describe('navigation workspace layout', () => {
     expect(
       within(toolRail).getByRole('button', { name: /about zkube/i }),
     ).toBeInTheDocument()
-    const bottomGroup = toolRail.querySelector('.tool-rail__group--bottom')
+    const bottomGroup = toolRail.querySelector('.side-nav__footer')
     expect(bottomGroup).not.toBeNull()
     const bottomButtons = within(bottomGroup as HTMLElement).getAllByRole('button')
     expect(bottomButtons).toHaveLength(2)
@@ -133,21 +133,6 @@ describe('navigation workspace layout', () => {
   })
 
   it('exposes a draggable divider between the tree workspace and node workbench', () => {
-    render(<App />)
-
-    const appShell = screen.getByLabelText('ZKube app shell')
-    const divider = screen.getByRole('separator', { name: /resize tree and workbench/i })
-
-    expect(appShell.style.getPropertyValue('--navigation-width')).toBe('980px')
-
-    fireEvent.mouseDown(divider, { clientX: 980 })
-    fireEvent.mouseMove(window, { clientX: 1004 })
-    fireEvent.mouseUp(window)
-
-    expect(appShell.style.getPropertyValue('--navigation-width')).toBe('1004px')
-  })
-
-  it('clamps the navigation width so dragging cannot hide the workbench', () => {
     const originalInnerWidth = window.innerWidth
 
     Object.defineProperty(window, 'innerWidth', {
@@ -160,11 +145,44 @@ describe('navigation workspace layout', () => {
     const appShell = screen.getByLabelText('ZKube app shell')
     const divider = screen.getByRole('separator', { name: /resize tree and workbench/i })
 
-    fireEvent.mouseDown(divider, { clientX: 728 })
+    expect(appShell.style.getPropertyValue('--tree-width')).toBe('380px')
+
+    fireEvent.mouseDown(divider, { clientX: 386 })
+    fireEvent.mouseMove(window, { clientX: 426 })
+    fireEvent.mouseUp(window)
+
+    expect(appShell.style.getPropertyValue('--tree-width')).toBe('420px')
+
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: originalInnerWidth,
+    })
+  })
+
+  it('clamps the tree width so dragging cannot hide the workbench', () => {
+    const originalInnerWidth = window.innerWidth
+
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: 1500,
+    })
+
+    render(<App />)
+
+    const appShell = screen.getByLabelText('ZKube app shell')
+    const divider = screen.getByRole('separator', { name: /resize tree and workbench/i })
+
+    fireEvent.mouseDown(divider, { clientX: 386 })
     fireEvent.mouseMove(window, { clientX: 1400 })
     fireEvent.mouseUp(window)
 
-    expect(appShell.style.getPropertyValue('--navigation-width')).toBe('1020px')
+    expect(appShell.style.getPropertyValue('--tree-width')).toBe('640px')
+
+    fireEvent.mouseDown(divider, { clientX: 646 })
+    fireEvent.mouseMove(window, { clientX: 100 })
+    fireEvent.mouseUp(window)
+
+    expect(appShell.style.getPropertyValue('--tree-width')).toBe('280px')
 
     Object.defineProperty(window, 'innerWidth', {
       configurable: true,
@@ -199,24 +217,23 @@ describe('navigation workspace layout', () => {
 
     const navigationWorkspace = screen.getByLabelText('Navigation workspace')
     const sidebar = screen.getByLabelText('Connections sidebar')
+    const sideNav = within(navigationWorkspace).getByLabelText('Navigation tools')
     const toggle = within(navigationWorkspace).getByRole('button', {
       name: /toggle connections panel/i,
     })
 
     expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    expect(navigationWorkspace).not.toHaveClass('navigation-workspace--collapsed')
-    expect(sidebar).not.toHaveClass('sidebar--collapsed')
+    expect(sideNav).toHaveAttribute('data-collapsed', 'false')
 
     fireEvent.click(toggle)
 
     expect(toggle).toHaveAttribute('aria-pressed', 'false')
-    expect(navigationWorkspace).toHaveClass('navigation-workspace--collapsed')
-    expect(sidebar).toHaveClass('sidebar--collapsed')
+    expect(sideNav).toHaveAttribute('data-collapsed', 'true')
+    expect(sidebar).toBeInTheDocument()
 
     fireEvent.click(toggle)
 
     expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    expect(navigationWorkspace).not.toHaveClass('navigation-workspace--collapsed')
-    expect(sidebar).not.toHaveClass('sidebar--collapsed')
+    expect(sideNav).toHaveAttribute('data-collapsed', 'false')
   })
 })

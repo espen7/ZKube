@@ -256,7 +256,8 @@ describe('Connections workspace', () => {
   it('disables deleting the active connection from the right-click menu', async () => {
     render(<App />)
 
-    const localCard = (await screen.findByText('Local ZooKeeper')).closest('article')
+    const savedList = screen.getByLabelText('Saved connections list')
+    const localCard = (await within(savedList).findByText('Local ZooKeeper')).closest('article')
     expect(localCard).not.toBeNull()
 
     fireEvent.click(
@@ -265,7 +266,9 @@ describe('Connections workspace', () => {
       }),
     )
 
-    const localCardAfterConnect = (await screen.findByText('Local ZooKeeper')).closest('article')
+    const localCardAfterConnect = (
+      await within(savedList).findByText('Local ZooKeeper')
+    ).closest('article')
     fireEvent.contextMenu(localCardAfterConnect as HTMLElement)
 
     expect(

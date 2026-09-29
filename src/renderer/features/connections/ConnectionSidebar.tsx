@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 
 import type { StoredConnection } from '../../../shared/models/connection'
+import { MaterialSymbol } from '../../components/MaterialSymbol'
 import { useI18n } from '../../use-i18n'
+import { AboutDialog } from '../layout/AboutDialog'
 import { ConnectionStateBadge } from '../runtime/ConnectionStateBadge'
 import { useConnectionsStore } from './useConnectionsStore'
 
@@ -15,12 +17,47 @@ type DeleteConfirmState = {
   connection: StoredConnection
 }
 
-export function ConnectionSidebar({ collapsed = false }: { collapsed?: boolean }) {
+function SideNavButton({
+  label,
+  onClick,
+  icon,
+  isActive = false,
+}: {
+  label: string
+  onClick: () => void
+  icon: string
+  isActive?: boolean
+}) {
+  return (
+    <button
+      aria-label={label}
+      aria-pressed={isActive ? 'true' : 'false'}
+      className={['side-nav__icon-btn', isActive ? 'side-nav__icon-btn--active' : '']
+        .filter(Boolean)
+        .join(' ')}
+      type="button"
+      onClick={onClick}
+    >
+      <MaterialSymbol name={icon} size={18} />
+    </button>
+  )
+}
+
+export function ConnectionSidebar({
+  collapsed,
+  onToggleSidebar,
+}: {
+  collapsed: boolean
+  onToggleSidebar: () => void
+}) {
   const {
     items,
     load,
     connect,
     disconnect,
+    openCreateDialog,
+    importFromFile,
+    exportToFile,
     openEditDialog,
     deleteConnection,
     feedback,
@@ -31,6 +68,9 @@ export function ConnectionSidebar({ collapsed = false }: { collapsed?: boolean }
   const { t } = useI18n()
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null)
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const [version, setVersion] = useState('--')
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     void load()
@@ -73,6 +113,32 @@ export function ConnectionSidebar({ collapsed = false }: { collapsed?: boolean }
       clearTimeout(timer)
     }
   }, [feedback, clearFeedback])
+
+  useEffect(() => {
+    if (!aboutOpen) {
+      setCopied(false)
+      return
+    }
+
+    let cancelled = false
+
+    void window.zkube?.app
+      .getVersion()
+      .then((result) => {
+        if (!cancelled) {
+          setVersion(result.version)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setVersion('--')
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [aboutOpen])
 
   const transitionInFlight =
     connectionState === 'connecting' || connectionState === 'reconnecting'
@@ -134,24 +200,50 @@ export function ConnectionSidebar({ collapsed = false }: { collapsed?: boolean }
     await deleteConnection(deleteConfirm.connection.id)
   }
 
+  async function handleCopyLink() {
+    try {
+      await navigator.clipboard.writeText('https://github.com/espen7/ZKube')
+      setCopied(true)
+    } catch {
+      setCopied(false)
+    }
+  }
+
   return (
     <aside
-      className={[
-        'panel',
-        'sidebar',
-        collapsed ? 'sidebar--collapsed' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      aria-label="Connections sidebar"
+      aria-label="Navigation tools"
+      className="side-nav"
+      data-collapsed={collapsed ? 'true' : 'false'}
     >
-      <div className="panel__header">
-        <div>
-          <div className="panel__eyebrow">{t('panel.connections')}</div>
-          <h2 className="panel__title">{t('panel.connectionWorkspace')}</h2>
-        </div>
+      <div className="side-nav__header">
+        <SideNavButton
+          isActive={!collapsed}
+          label={t('tool.toggleConnections')}
+          icon="left_panel_open"
+          onClick={onToggleSidebar}
+        />
+        <SideNavButton
+          label={t('tool.createConnection')}
+          icon="add_box"
+          onClick={openCreateDialog}
+        />
+        <SideNavButton
+          label={t('tool.importConnections')}
+          icon="download"
+          onClick={() => {
+            void importFromFile()
+          }}
+        />
+        <SideNavButton
+          label={t('tool.exportConnections')}
+          icon="upload"
+          onClick={() => {
+            void exportToFile()
+          }}
+        />
       </div>
-      <div className="panel__body sidebar__body">
+
+      <div aria-label="Connections sidebar" className="side-nav__body">
         <div className="muted">{t('panel.savedConnections')}</div>
         {feedback ? (
           <div aria-live="polite" className="sidebar-feedback" role="status">
@@ -282,6 +374,33 @@ export function ConnectionSidebar({ collapsed = false }: { collapsed?: boolean }
           )}
         </div>
       </div>
+
+      <div className="side-nav__footer">
+        <SideNavButton
+          label={t('tool.openSettings')}
+          icon="settings"
+          onClick={() => {
+            void window.zkube?.preferences?.openSettingsWindow()
+          }}
+        />
+        <SideNavButton
+          label={t('tool.about')}
+          icon="info"
+          onClick={() => {
+            setAboutOpen(true)
+          }}
+        />
+      </div>
+
+      <AboutDialog
+        open={aboutOpen}
+        version={version}
+        copied={copied}
+        onClose={() => setAboutOpen(false)}
+        onCopy={() => {
+          void handleCopyLink()
+        }}
+      />
 
       {deleteConfirm ? (
         <div className="dialog-backdrop dialog-backdrop--overlay">
